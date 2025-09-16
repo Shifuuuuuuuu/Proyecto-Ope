@@ -73,10 +73,11 @@
 <script setup>
 import QRCode from "qrcode"
 import { v4 as uuidv4 } from "uuid"
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib"
+import { PDFDocument, rgb } from "pdf-lib"            // 👈 sin StandardFonts
 import { ref, reactive } from "vue"
-import { db } from "@/firebase/config" // 👈 tu ruta real
+import { db } from "@/firebase/config"
 import { doc, setDoc, serverTimestamp } from "firebase/firestore"
+import logoSrc from "@/img/Logo XT Servicios Transparente.png"
 
 const file = ref(null)
 const loading = ref(false)
@@ -120,8 +121,8 @@ async function procesar() {
     // 2) QR (PNG dataURL)
     qrDataUrl.value = await QRCode.toDataURL(verificationUrl.value, { margin: 1, width: 300 })
 
-    // 3) PDF con QR incrustado
-    const resultPdfBytes = await buildPdfWithQr(file.value, qrDataUrl.value, verificationUrl.value)
+    // 3) PDF con QR + LOGO incrustados
+    const resultPdfBytes = await buildPdfWithQr(file.value, qrDataUrl.value)
 
     // 4) Guardar metadata en Firestore
     await setDoc(doc(db, "certificados", id), {
@@ -154,7 +155,7 @@ function downloadBlob(url, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 10000)
 }
 
-async function buildPdfWithQr(fileObj, qrPngDataUrl, urlText) {
+async function buildPdfWithQr(fileObj, qrPngDataUrl) {
   const arrayBuf = await fileObj.arrayBuffer()
   let pdfDoc
   let pages
@@ -177,59 +178,47 @@ async function buildPdfWithQr(fileObj, qrPngDataUrl, urlText) {
   // Embedir QR
   const qrBytes = await (await fetch(qrPngDataUrl)).arrayBuffer()
   const qrImg = await pdfDoc.embedPng(qrBytes)
-  const first = pages[0]
 
+  // Embedir LOGO (arriba del QR)
+  const logoBytes = await fetch(logoSrc).then(res => res.arrayBuffer())
+  const logoImg = await pdfDoc.embedPng(logoBytes)
+
+  const first = pages[0]
   const qrSize = 120
   const margin = 24
   const { width } = first.getSize()
   const x = width - qrSize - margin
   const y = margin
 
-  // 1) Fondo blanco para tapar lo que haya detrás (QR + texto)
+  // Fondo blanco para QR + logo
   const pad = 12
   const boxW = qrSize + pad * 2
-  const boxH = qrSize + pad * 2 + 28 // espacio extra para el título/URL arriba
+  const boxH = qrSize + pad * 2 + 50 // más alto para dejar espacio al logo
   first.drawRectangle({
     x: x - pad,
     y,
     width: boxW,
     height: boxH,
-    color: rgb(1, 1, 1), // blanco sólido
+    color: rgb(1, 1, 1),
   })
 
-  // (opcional) borde suave
-  // first.drawRectangle({ x: x - pad, y, width: boxW, height: boxH, borderColor: rgb(0.75,0.75,0.75), borderWidth: 0.5 })
+  // LOGO arriba
+  const logoWidth = qrSize
+  const logoHeight = qrSize * 0.25
+  const logoX = x
+  const logoY = y + qrSize + pad + 10
+  first.drawImage(logoImg, {
+    x: logoX,
+    y: logoY,
+    width: logoWidth,
+    height: logoHeight,
+  })
 
-  // 2) Texto arriba del QR (no lo pisa)
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
-  const title = "Verificar certificado:"
-  const showText = false // <-- ponlo en false si no quieres mostrar texto/URL
-
-  if (showText) {
-    first.drawText(title, {
-      x: x - pad + 6,
-      y: y + qrSize + pad + 10, // arriba del QR
-      size: 10,
-      font,
-      color: rgb(0, 0, 0),
-    })
-    // Mostrar URL corta (sin http/https) para que no sea tan larga
-    const urlToShow = urlText.replace(/^https?:\/\//, "")
-    first.drawText(urlToShow, {
-      x: x - pad + 6,
-      y: y + qrSize + pad - 2,
-      size: 9,
-      font,
-      color: rgb(0, 0, 0),
-    })
-  }
-
-  // 3) Dibujar QR centrado horizontalmente dentro de la caja
+  // QR
   const qrX = x
   const qrY = y + pad
   first.drawImage(qrImg, { x: qrX, y: qrY, width: qrSize, height: qrSize })
 
   return await pdfDoc.save()
 }
-
 </script>
