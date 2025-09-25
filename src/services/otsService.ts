@@ -25,6 +25,7 @@ import {
  * @param {object} ot
  * @param {(e: ProgressEvt) => void} [onProgress]
  */
+// eslint-disable-next-line no-unused-vars
 export async function crearOT(ot, onProgress = (_e) => {}) {
   const {
     base64 = '',
