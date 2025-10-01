@@ -109,7 +109,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, onBeforeUnmount } from "vue"
+import { ref, onMounted, computed} from "vue"
 import { useRoute } from "vue-router"
 import { db } from "@/firebase/config"
 import {
@@ -263,10 +263,6 @@ onMounted(async () => {
   }
 })
 
-onBeforeUnmount(() => {
-  if (pdfBlobUrl.value) URL.revokeObjectURL(pdfBlobUrl.value)
-  if (revokeTimer) clearTimeout(revokeTimer)
-})
 </script>
 
 <style scoped>
