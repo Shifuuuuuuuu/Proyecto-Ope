@@ -99,6 +99,7 @@ const routes = [
     component: VerificarCertificado
     // pública: sin requiresAuth
   },
+
 ]
 
 const router = createRouter({
@@ -124,8 +125,8 @@ const ALLOWED_VISUALIZADOR = new Set([
   'IngresoContratos',
   'OTsPage',
   'MenuPrincipal',
-  'RegistroArriendos',  // ✅ nuevo
-  'ReportesFallas'      // ✅ nuevo
+  'RegistroArriendos',  
+  'ReportesFallas'      
 ])
 
 router.beforeEach(async (to, from, next) => {

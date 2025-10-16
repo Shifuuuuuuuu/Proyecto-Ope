@@ -5,43 +5,27 @@ import {
   query, orderBy, writeBatch, serverTimestamp
 } from 'firebase/firestore'
 
-/** @typedef {{stage:'reading'|'optimizing'|'uploading'|'done', pct:number, detail?:string}} ProgressEvt */
+/** Subimos el umbral para permitir PDFs grandes sin recomprimir (se trocean). */
+export const BYTES_THRESHOLD = 1_200 * 1024; // ~1.2 MB
 
-/** Umbral por tamaño del binario para decidir troceo (subido a 900KB para priorizar calidad). */
-export const BYTES_THRESHOLD = 900 * 1024; // 900 KB aprox
+/** Cada chunk ~240k chars (seguro para Firestore) */
+export const CHUNK_SIZE = 240_000;
 
-/** Caracteres por chunk (cada char base64 ~ 0.75 bytes del binario) */
-export const CHUNK_SIZE = 240_000; // margen seguro
+/** Máx base64 antes de trocear (~1.6MB base64 aprox). */
+const CHARS_THRESHOLD = 1_600_000;
 
-/** Longitud máxima base64 (sin prefijo) antes de trocear (≈ 900KB binario ≈ 1.2MB base64). */
-const CHARS_THRESHOLD = 1_230_000;
-
-/** Normaliza DataURL/base64 a { dataPrefix, raw } */
 function normalizeBase64(inputBase64, mimeType = 'application/pdf') {
   const prefixMatch = String(inputBase64).match(/^data:(.*?);base64,/)
   const dataPrefix = prefixMatch ? prefixMatch[0] : `data:${mimeType};base64,`
   const raw = String(inputBase64).replace(/^data:.*?;base64,/, '')
   return { dataPrefix, raw }
 }
-
-/** Decide si debemos trocear. */
 function shouldChunk({ sizeBytes = 0, rawLen = 0, preferirChunks = false }) {
-  if (preferirChunks && sizeBytes > BYTES_THRESHOLD) return true
-  return (sizeBytes > BYTES_THRESHOLD) || (rawLen > CHARS_THRESHOLD)
+  if (preferirChunks && sizeBytes > 0) return true
+  if (sizeBytes > BYTES_THRESHOLD) return true
+  return rawLen > CHARS_THRESHOLD
 }
 
-/**
- * Crea un certificado en /certificados (troceado si excede umbral).
- *
- * @param {object} params
- * @param {string} params.base64 - DataURL o base64 crudo
- * @param {string} [params.mimeType='application/pdf']
- * @param {number} [params.sizeBytes=0]
- * @param {boolean} [params.preferirChunks=false]
- * @param {object} meta - metadatos (categoria, equipo, etc.)
- * @param {(e: ProgressEvt) => void} [onProgress]
- * @returns {Promise<{id:string}>}
- */
 export async function crearCertificado(params, meta = {}, onProgress = () => {}) {
   const {
     base64 = '',
@@ -53,32 +37,16 @@ export async function crearCertificado(params, meta = {}, onProgress = () => {})
   onProgress({ stage: 'optimizing', pct: 5, detail: 'Optimizando base64…' })
 
   const { dataPrefix, raw } = normalizeBase64(base64, mimeType)
-
   const optimizedRaw = raw.replace(/\s+/g, '')
   const savedChars = Math.max(0, raw.length - optimizedRaw.length)
   if (savedChars > 0) {
-    onProgress({
-      stage: 'optimizing',
-      pct: 12,
-      detail: `- ${Math.round(savedChars * (3/4))} bytes aprox.`
-    })
+    onProgress({ stage: 'optimizing', pct: 12, detail: `- ${Math.round(savedChars * (3/4))} bytes aprox.` })
   }
 
-  const mustChunk = shouldChunk({
-    sizeBytes,
-    rawLen: optimizedRaw.length,
-    preferirChunks
-  })
+  const mustChunk = shouldChunk({ sizeBytes, rawLen: optimizedRaw.length, preferirChunks })
 
   const colRef = collection(db, 'certificados')
-  const metaDoc = {
-    ...meta,
-    mimeType,
-    dataPrefix,
-    isChunked: mustChunk,
-    chunksCount: 0,
-    creado: serverTimestamp(),
-  }
+  const metaDoc = { ...meta, mimeType, dataPrefix, isChunked: mustChunk, chunksCount: 0, creado: serverTimestamp() }
 
   if (!mustChunk) {
     onProgress({ stage: 'uploading', pct: 70, detail: 'Guardando documento completo…' })
@@ -87,7 +55,6 @@ export async function crearCertificado(params, meta = {}, onProgress = () => {})
     return { id: saved.id }
   }
 
-  // Guardar metadatos y luego /chunks
   const savedMeta = await addDoc(colRef, metaDoc)
   const chunksRef = collection(db, `certificados/${savedMeta.id}/chunks`)
 
@@ -106,7 +73,6 @@ export async function crearCertificado(params, meta = {}, onProgress = () => {})
   return { id: savedMeta.id }
 }
 
-/** Reconstruye DataURL (si hay chunks, los une) */
 export async function obtenerCertificadoDataUrl(id) {
   const ref = doc(db, 'certificados', id)
   const snap = await getDoc(ref)
@@ -124,7 +90,6 @@ export async function obtenerCertificadoDataUrl(id) {
   return `${dataPrefix}${joined}`
 }
 
-/** Lista certificados (puedes filtrar luego por categoría/lo que necesites) */
 export async function listarCertificados(limitN = 100) {
   const ref = collection(db, 'certificados')
   const q = query(ref, orderBy('creado', 'desc'))
@@ -132,7 +97,6 @@ export async function listarCertificados(limitN = 100) {
   return snap.docs.slice(0, limitN).map(d => ({ id: d.id, ...d.data() }))
 }
 
-/** Elimina certificado (incluye chunks si existen) */
 export async function eliminarCertificado(id) {
   const ref = doc(db, 'certificados', id)
   const chunksRef = collection(db, `certificados/${id}/chunks`)
@@ -150,16 +114,10 @@ export async function eliminarCertificado(id) {
   await deleteDoc(ref)
 }
 
-/** Actualiza SOLO metadatos (no toca archivo) */
 export async function actualizarMetadatos(id, patch = {}) {
   await setDoc(doc(db, 'certificados', id), { ...patch, actualizado: serverTimestamp() }, { merge: true })
 }
 
-/**
- * Reemplaza archivo:
- * - borra file_b64 y chunks previos
- * - vuelve a subir con chunking si corresponde (sin comprimir aquí)
- */
 export async function reemplazarArchivo(
   id,
   { base64, mimeType = 'application/pdf', sizeBytes = 0, preferirChunks = false },
@@ -169,7 +127,6 @@ export async function reemplazarArchivo(
   const snap = await getDoc(ref)
   if (!snap.exists()) throw new Error('Certificado no existe')
 
-  // limpiar anterior
   await setDoc(ref, { file_b64: null, isChunked: false, chunksCount: 0 }, { merge: true })
   const chunksRef = collection(db, `certificados/${id}/chunks`)
   const chunksSnap = await getDocs(chunksRef)
@@ -183,14 +140,9 @@ export async function reemplazarArchivo(
     if (ops) await batch.commit()
   }
 
-  // subir nuevo
   const { dataPrefix, raw } = normalizeBase64(base64, mimeType)
   const optimizedRaw = raw.replace(/\s+/g, '')
-  const mustChunk = shouldChunk({
-    sizeBytes,
-    rawLen: optimizedRaw.length,
-    preferirChunks
-  })
+  const mustChunk = shouldChunk({ sizeBytes, rawLen: optimizedRaw.length, preferirChunks })
 
   await setDoc(ref, { mimeType, dataPrefix, isChunked: mustChunk, chunksCount: 0 }, { merge: true })
 

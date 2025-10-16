@@ -2,7 +2,7 @@
   <div class="container py-4">
     <!-- Header + Probar -->
     <div class="d-flex align-items-center justify-content-between mb-3">
-      <h2 class="h5 mb-0">Generar certificado con QR</h2>
+      <h2 class="h5 mb-0">Generar certificado con QR (alta nitidez)</h2>
 
       <div class="d-flex align-items-center gap-2">
         <router-link v-if="lastId" class="btn btn-outline-secondary btn-sm" :to="`/verificar?id=${lastId}`">
@@ -34,7 +34,7 @@
                 {{ batchMode ? 'Archivos de certificados (PDF o imagen, múltiples)' : 'Archivo del certificado (PDF o imagen)' }}
               </label>
               <input type="file" :multiple="batchMode" accept="application/pdf,image/*" class="form-control" @change="onFile" />
-              <div class="form-text">Se incrustará un QR en la primera página (abajo a la derecha).</div>
+              <div class="form-text">Se incrustará un QR en la primera página (abajo a la derecha) sin re-comprimir el PDF original.</div>
             </div>
 
             <!-- Campos base para modo simple -->
@@ -108,7 +108,7 @@
             <!-- Botones -->
             <div class="col-12 d-flex gap-2 align-items-center">
               <button class="btn btn-primary" :disabled="btnDisabled">
-                <span v-if="!loading">{{ batchMode ? 'Generar, comprimir y guardar (lote)' : 'Guardar metadatos / descargar' }}</span>
+                <span v-if="!loading">{{ batchMode ? 'Generar, trocear y guardar (lote)' : 'Guardar metadatos / descargar' }}</span>
                 <span v-else class="spinner-border spinner-border-sm"></span>
               </button>
               <button type="button" class="btn btn-outline-secondary" @click="limpiar" :disabled="loading">Limpiar</button>
@@ -128,7 +128,7 @@
           <embed :src="previewUrl" type="application/pdf" class="w-100" style="height: 420px;" />
           <div class="small text-muted mt-2">
             Tamaño final aprox.: <strong>{{ humanSize(bytesFinal) }}</strong>
-            <span v-if="singlePreUploaded" class="badge bg-info ms-2">Subido al seleccionar (troceado)</span>
+            <span v-if="singlePreUploaded" class="badge bg-info ms-2">Subido al seleccionar (troceado si es grande)</span>
           </div>
         </div>
 
@@ -145,12 +145,12 @@
             <table class="table table-sm align-middle">
               <thead>
                 <tr>
-                    <th>#</th>
-                    <th>Archivo</th>
-                    <th>Tamaño</th>
-                    <th>Estado</th>
-                    <th>Verificar</th>
-                    <th>Descargar</th>
+                  <th>#</th>
+                  <th>Archivo</th>
+                  <th>Tamaño</th>
+                  <th>Estado</th>
+                  <th>Verificar</th>
+                  <th>Descargar</th>
                 </tr>
               </thead>
               <tbody>
@@ -162,9 +162,7 @@
                   </td>
                   <td>{{ humanSize(r.sizeBytes) }}</td>
                   <td>
-                    <span class="badge" :class="r.ok ? 'bg-success' : 'bg-warning text-dark'">
-                      {{ r.ok ? 'OK' : 'Comprimido al máximo' }}
-                    </span>
+                    <span class="badge bg-success">Sin recomprimir</span>
                   </td>
                   <td><router-link class="btn btn-success btn-sm" :to="`/verificar?id=${r.id}`">Abrir</router-link></td>
                   <td><button class="btn btn-outline-primary btn-sm" @click="downloadBlob(r.objectUrl, r.downloadName)">Descargar</button></td>
@@ -202,15 +200,15 @@
             </select>
           </div>
 
-            <div class="col-6 col-md-2">
-              <label class="form-label mb-1">Mostrar</label>
-              <select class="form-select" v-model.number="pageSize">
-                <option :value="10">10</option>
-                <option :value="25">25</option>
-                <option :value="50">50</option>
-                <option :value="100">100</option>
-              </select>
-            </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label mb-1">Mostrar</label>
+            <select class="form-select" v-model.number="pageSize">
+              <option :value="10">10</option>
+              <option :value="25">25</option>
+              <option :value="50">50</option>
+              <option :value="100">100</option>
+            </select>
+          </div>
 
           <div class="col-12 col-md-3 d-flex gap-2">
             <button class="btn btn-outline-secondary w-100" @click="cargarCertificados" :disabled="loadingList">
@@ -268,19 +266,11 @@
             <span v-if="filtroCategoria"> • categoría: <strong>{{ filtroCategoria }}</strong></span>
           </div>
           <nav aria-label="Paginación" class="d-flex align-items-center gap-1">
-            <button class="btn btn-outline-secondary btn-sm" :disabled="page===1" @click="page=1">
-              «
-            </button>
-            <button class="btn btn-outline-secondary btn-sm" :disabled="page===1" @click="page--">
-              Anterior
-            </button>
+            <button class="btn btn-outline-secondary btn-sm" :disabled="page===1" @click="page=1">«</button>
+            <button class="btn btn-outline-secondary btn-sm" :disabled="page===1" @click="page--">Anterior</button>
             <span class="mx-2 small">Página <strong>{{ page }}</strong> de <strong>{{ totalPages }}</strong></span>
-            <button class="btn btn-outline-secondary btn-sm" :disabled="page===totalPages" @click="page++">
-              Siguiente
-            </button>
-            <button class="btn btn-outline-secondary btn-sm" :disabled="page===totalPages" @click="page=totalPages">
-              »
-            </button>
+            <button class="btn btn-outline-secondary btn-sm" :disabled="page===totalPages" @click="page++">Siguiente</button>
+            <button class="btn btn-outline-secondary btn-sm" :disabled="page===totalPages" @click="page=totalPages">»</button>
           </nav>
         </div>
       </div>
@@ -348,7 +338,7 @@
               <div class="col-12">
                 <label class="form-label">Reemplazar archivo (opcional)</label>
                 <input type="file" class="form-control" accept="application/pdf,image/*" @change="e=>editNewFile=e.target.files?.[0]||null">
-                <small class="text-muted">Si adjuntas, se vuelve a trocear si excede el umbral.</small>
+                <small class="text-muted">Se volverá a incrustar el QR sin recomprimir el PDF.</small>
               </div>
             </div>
           </div>
@@ -360,7 +350,7 @@
       </div>
     </div>
 
-    <!-- MODAL CONFIRMACIÓN ELIMINAR (lindo) -->
+    <!-- MODAL CONFIRMACIÓN ELIMINAR -->
     <div class="modal fade show d-block" tabindex="-1" role="dialog" v-if="showConfirm" style="background: rgba(0,0,0,.35);">
       <div class="modal-dialog modal-sm modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
@@ -415,25 +405,9 @@ import {
   reemplazarArchivo
 } from "@/services/certificadosService"
 
-/* ===== Compresión y PDF.js ===== */
-const TARGET_MAX_B64 = 800_000;
-const THRESHOLD_BYTES = 800 * 1024;
-const IMG_MAX_WIDTH = 1800;
-const IMG_MIN_QUALITY = 0.70;
-
-/* Fallbacks para pdf.js */
-const PDFJS_CANDIDATES = [
-  {
-    lib: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js",
-    worker: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js",
-    label: "cdnjs"
-  },
-  {
-    lib: "https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.min.js",
-    worker: "https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.worker.min.js",
-    label: "jsdelivr"
-  }
-]
+/* ===== Config nitidez (sin recomprimir) ===== */
+/** No imponemos tope de 800KB. Si pesa, lo subimos en chunks vía Firestore. */
+const PREUPLOAD_THRESHOLD_BYTES = 1_200 * 1024; // si pasa ~1.2MB binario, pre-subimos (troceado)
 
 /* ===== Estado ===== */
 const batchMode = ref(false)
@@ -447,8 +421,6 @@ const verificationUrl = ref("")
 const originalFileName = ref("")
 const lastId = ref(null)
 const lastVerifyUrl = ref("")
-const forceGray = ref(false)
-
 const singlePreUploaded = ref(false)
 const preSavedId = ref(null)
 
@@ -459,7 +431,7 @@ const batchProgress = ref({ current: 0, total: 0 })
 // progreso modal
 const showProgress = ref(false)
 const progress = ref({ stage: 'reading', pct: 0, detail: '' })
-const pdfJsError = ref("")
+const pdfJsError = ref("") // mantenido para compat, pero ya no usamos pdf.js
 
 // Modal de edición
 const showEdit = ref(false)
@@ -573,7 +545,6 @@ async function cargarCategorias(){
 async function cargarCertificados(){
   loadingList.value=true
   try{
-    // Puedes ajustar el límite si tu servicio soporta paginado en backend
     lista.value = await listarCertificados(1000)
   }catch(e){ console.error(e) }
   finally{ loadingList.value=false }
@@ -617,13 +588,13 @@ async function onFile(e){
     previewUrl.value=null; qrDataUrl.value=null; verificationUrl.value=""; bytesFinal.value=0
     singlePreUploaded.value = false; preSavedId.value = null
 
-    if (file.value && file.value.size > THRESHOLD_BYTES){
+    if (file.value && file.value.size > PREUPLOAD_THRESHOLD_BYTES){
       await preUploadSingle(file.value)
     }
   }
 }
 
-/** Pre-subida (troceado) inmediata para modo 1-a-1 si excede 800KB */
+/** Pre-subida inmediata (si excede ~1.2MB) usando troceo, sin recomprimir */
 async function preUploadSingle(f){
   try{
     showProgress.value = true
@@ -644,23 +615,21 @@ async function preUploadSingle(f){
     verificationUrl.value = verifyUrl
     qrDataUrl.value = qrUrl
 
-    progress.value = { stage:'optimizing', pct: 10, detail:'Generando PDF con QR…' }
-    const originalBytes = await buildPdfWithQr(f, qrUrl)
-    const { bytes, ok } = await ensureUnderTarget(originalBytes, { grayFallback: true })
-    if (!ok) showToast('warning',"No pude bajar de ~800 KB base64; comprimí al máximo posible.")
+    progress.value = { stage:'optimizing', pct: 10, detail:'Incrustando QR (sin perder calidad)…' }
+    const finalBytes = await buildPdfWithQr(f, qrUrl) // sin rasterizar
 
-    const blob = new Blob([bytes], { type:"application/pdf" })
+    const blob = new Blob([finalBytes], { type:"application/pdf" })
     const url = URL.createObjectURL(blob)
     previewUrl.value = url
-    bytesFinal.value = bytes.byteLength
+    bytesFinal.value = finalBytes.byteLength
 
-    const b64 = bytesToBase64(new Uint8Array(bytes))
+    const b64 = bytesToBase64(new Uint8Array(finalBytes))
     const dataUrl = `data:application/pdf;base64,${b64}`
 
-    progress.value = { stage:'uploading', pct: 0, detail:'Subiendo…' }
+    progress.value = { stage:'uploading', pct: 0, detail:'Subiendo (en partes si hace falta)…' }
     await reemplazarArchivo(
       tempId,
-      { base64: dataUrl, mimeType: 'application/pdf', sizeBytes: bytes.byteLength },
+      { base64: dataUrl, mimeType: 'application/pdf', sizeBytes: finalBytes.byteLength, preferirChunks: true },
       (e)=>{ progress.value = e }
     )
 
@@ -669,7 +638,7 @@ async function preUploadSingle(f){
     preSavedId.value = tempId
     lastId.value = tempId
     lastVerifyUrl.value = verifyUrl
-    showToast('success','Archivo grande pre-subido y listo para guardar metadatos')
+    showToast('success','Archivo grande pre-subido sin recomprimir; listo para guardar metadatos')
   }catch(e){
     console.error(e)
     showProgress.value = false
@@ -717,22 +686,19 @@ async function procesar(){
     verificationUrl.value = verifyUrl
     qrDataUrl.value = await QRCode.toDataURL(verifyUrl, { margin:1, width:300 })
 
-    const originalBytes = await buildPdfWithQr(file.value, qrDataUrl.value)
-    const { bytes, ok } = await ensureUnderTarget(originalBytes, { grayFallback: forceGray.value })
-    if (!ok) showToast('warning',"No pude bajar de ~800 KB base64; comprimí al máximo posible")
-
-    const blob = new Blob([bytes], { type: "application/pdf" })
+    const finalBytes = await buildPdfWithQr(file.value, qrDataUrl.value) // sin rasterizar
+    const blob = new Blob([finalBytes], { type: "application/pdf" })
     const url = URL.createObjectURL(blob)
     previewUrl.value = url
-    bytesFinal.value = bytes.byteLength
+    bytesFinal.value = finalBytes.byteLength
 
-    const b64 = bytesToBase64(new Uint8Array(bytes))
+    const b64 = bytesToBase64(new Uint8Array(finalBytes))
     const dataUrl = `data:application/pdf;base64,${b64}`
 
     showProgress.value = true
-    progress.value = { stage: 'uploading', pct: 0, detail: 'Subiendo…' }
+    progress.value = { stage: 'uploading', pct: 0, detail: 'Subiendo (en partes si hace falta)…' }
     const { id: savedId } = await crearCertificado(
-      { base64: dataUrl, mimeType: "application/pdf", sizeBytes: bytes.byteLength },
+      { base64: dataUrl, mimeType: "application/pdf", sizeBytes: finalBytes.byteLength, preferirChunks: true },
       {
         categoria: form.categoria || null,
         equipo: form.equipo || null,
@@ -751,8 +717,8 @@ async function procesar(){
     lastId.value = savedId
     lastVerifyUrl.value = verifyUrl
     await cargarCertificados()
-    showToast('success','Certificado generado y subido correctamente')
-  }catch(err){ console.error(err); showToast('danger','Error generando/comprimiendo/guardando el PDF') }
+    showToast('success','Certificado generado y subido sin pérdida de calidad')
+  }catch(err){ console.error(err); showToast('danger','Error generando/guardando el PDF') }
   finally{ loading.value=false }
 }
 
@@ -772,18 +738,17 @@ async function procesarBatch(){
       const verifyUrl = `${location.origin}/verificar?id=${id}`
       const qrUrl = await QRCode.toDataURL(verifyUrl, { margin:1, width:300 })
 
-      const basePdf = await buildPdfWithQr(r.file, qrUrl)
-      const { bytes, ok } = await ensureUnderTarget(basePdf, { grayFallback: forceGray.value })
+      const finalBytes = await buildPdfWithQr(r.file, qrUrl) // sin rasterizar
 
       const creadoLocal = new Date(); const venceLocal = addMonths(creadoLocal, 3)
-      const b64 = bytesToBase64(new Uint8Array(bytes))
+      const b64 = bytesToBase64(new Uint8Array(finalBytes))
       const dataUrl = `data:application/pdf;base64,${b64}`
 
       showProgress.value = true
       progress.value = { stage: 'uploading', pct: 0, detail: `Subiendo ${r.fileName}…` }
 
       const { id: savedId } = await crearCertificado(
-        { base64: dataUrl, mimeType: "application/pdf", sizeBytes: bytes.byteLength },
+        { base64: dataUrl, mimeType: "application/pdf", sizeBytes: finalBytes.byteLength, preferirChunks: true },
         {
           categoria: r.categoria || null,
           equipo: r.equipo || null,
@@ -799,20 +764,20 @@ async function procesarBatch(){
 
       showProgress.value = false
 
-      const blob = new Blob([bytes], { type:"application/pdf" })
+      const blob = new Blob([finalBytes], { type:"application/pdf" })
       const objectUrl = URL.createObjectURL(blob)
       batchResults.value.push({
         id: savedId,
         name: r.fileName || `certificado_${savedId}.pdf`,
         downloadName: r.fileName || `certificado_${savedId}.pdf`,
-        objectUrl, sizeBytes: bytes.byteLength, ok, preUploaded: false
+        objectUrl, sizeBytes: finalBytes.byteLength, ok: true, preUploaded: false
       })
 
       batchProgress.value.current = i+1
       lastId.value = savedId; lastVerifyUrl.value = verifyUrl
     }
     await cargarCertificados()
-    showToast('success','Listo: certificados generados y guardados')
+    showToast('success','Listo: certificados generados y guardados sin recomprimir')
   }catch(e){ console.error(e); showToast('danger','Error procesando el lote') }
   finally{ loading.value=false; showProgress.value=false }
 }
@@ -822,27 +787,31 @@ async function copiarTodos(){
   await copiar(links)
 }
 
-/* ===== Construcción PDF + QR ===== */
+/* ===== Construcción PDF + QR (sin rasterizar) ===== */
 async function buildPdfWithQr(fileObj, qrPngDataUrl){
   const arrayBuf = await fileObj.arrayBuffer()
   const isPdf = fileObj.type === "application/pdf" || fileObj.name?.toLowerCase().endsWith(".pdf")
   let pdfDoc, pages
 
   if (isPdf){
-    pdfDoc = await PDFDocument.load(arrayBuf)
+    // Carga el PDF tal cual (no convierte a imagen)
+    pdfDoc = await PDFDocument.load(arrayBuf, { updateMetadata: false })
     pages = pdfDoc.getPages()
   } else {
+    // Archivo de imagen -> crear PDF con la imagen a resolución nativa
     pdfDoc = await PDFDocument.create()
     const ext = (fileObj.name || "").toLowerCase()
-    const img = ext.endsWith(".png") ? await pdfDoc.embedPng(arrayBuf) : await pdfDoc.embedJpg(arrayBuf)
-    const scaled = fitWithin(img.width, img.height, IMG_MAX_WIDTH)
-    const page = pdfDoc.addPage([scaled.w, scaled.h])
-    page.drawImage(img, { x:0, y:0, width:scaled.w, height:scaled.h })
+    const isPng = ext.endsWith(".png") || fileObj.type === "image/png"
+    const img = isPng ? await pdfDoc.embedPng(arrayBuf) : await pdfDoc.embedJpg(arrayBuf) // PNG sin pérdida, JPG se incrusta
+    const page = pdfDoc.addPage([img.width, img.height])
+    page.drawImage(img, { x:0, y:0, width:img.width, height:img.height })
     pages = pdfDoc.getPages()
   }
 
+  // Embed QR y logo en PNG (vector en PDF-lib como objeto imagen)
   const qrBytes = await (await fetch(qrPngDataUrl)).arrayBuffer()
   const qrImg = await pdfDoc.embedPng(qrBytes)
+
   const logoBytes = await fetch(logoSrc).then(res => res.arrayBuffer())
   const logoImg = await pdfDoc.embedPng(logoBytes)
 
@@ -852,142 +821,13 @@ async function buildPdfWithQr(fileObj, qrPngDataUrl){
   const x = width - qrSize - margin
   const y = margin
 
+  // Caja blanca detrás (para legibilidad), no afecta nitidez del contenido original
   const pad = 12, boxW = qrSize + pad*2, boxH = qrSize + pad*2 + 50
   first.drawRectangle({ x: x - pad, y, width: boxW, height: boxH, color: rgb(1,1,1) })
   first.drawImage(logoImg, { x, y: y + qrSize + pad + 10, width: qrSize, height: qrSize*0.25 })
   first.drawImage(qrImg,   { x, y: y + pad, width: qrSize, height: qrSize })
 
-  return await pdfDoc.save()
-}
-
-/* ===== Compresión (prioriza calidad) ===== */
-async function ensureUnderTarget(pdfBytes, opts = { grayFallback:false }){
-  let best = pdfBytes
-  let bestLen = bytesToBase64(new Uint8Array(pdfBytes)).length
-  if (bestLen <= TARGET_MAX_B64) return { bytes: pdfBytes, ok: true }
-
-  // Estrategia calidad alta, menos downscale
-  let quality = 0.92
-  let minQuality = 0.75
-  let scale = 1.0
-  let minScale = 0.85
-  let tries = 0
-
-  while (tries < 10){
-    const rebuilt = await rasterizePdfAndRebuild(best, { scaleHint: scale, qualityStart: quality, gray: false })
-    const len = bytesToBase64(new Uint8Array(rebuilt)).length
-    if (len <= TARGET_MAX_B64) return { bytes: rebuilt, ok: true }
-    if (len < bestLen){ best = rebuilt; bestLen = len }
-
-    if (quality > minQuality) {
-      quality = Math.max(minQuality, quality - 0.05)
-    } else if (scale > minScale) {
-      scale = Math.max(minScale, scale * 0.95)
-    } else {
-      break
-    }
-    tries++
-  }
-
-  if (opts.grayFallback) {
-    const grayBuilt = await rasterizePdfAndRebuild(best, { scaleHint: Math.max(minScale, scale*0.98), qualityStart: Math.max(minQuality, quality-0.02), gray: true })
-    const lenG = bytesToBase64(new Uint8Array(grayBuilt)).length
-    return { bytes: grayBuilt, ok: lenG <= TARGET_MAX_B64 }
-  }
-  return { bytes: best, ok: bestLen <= TARGET_MAX_B64 }
-}
-
-function fitWithin(w,h,maxW){ if (w<=maxW) return {w,h}; const s=maxW/w; return { w:Math.round(w*s), h:Math.round(h*s) } }
-
-/* ===== PDF.js (CDN) con fallback ===== */
-function loadScript(src){
-  return new Promise((resolve, reject) => {
-    const s = document.createElement("script")
-    s.src = src
-    s.async = true
-    s.crossOrigin = "anonymous"
-    s.onload = () => resolve()
-    s.onerror = () => reject(new Error(`Fallo al cargar ${src}`))
-    document.head.appendChild(s)
-  })
-}
-async function getPdfJs(){
-  if (window.pdfjsLib) return window.pdfjsLib
-  pdfJsError.value = ""
-  let lastErr = null
-  for (const cand of PDFJS_CANDIDATES){
-    try{
-      await loadScript(cand.lib)
-      if (!window.pdfjsLib) throw new Error(`pdf.js no expuso window.pdfjsLib desde ${cand.label}`)
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = cand.worker
-      return window.pdfjsLib
-    }catch(err){ lastErr = err }
-  }
-  pdfJsError.value = "No se pudo cargar pdf.js desde la CDN. Revisa tu conexión o políticas CSP."
-  throw lastErr || new Error("No se pudo cargar pdf.js")
-}
-
-async function rasterizePdfAndRebuild(pdfBytes, { scaleHint=1.0, qualityStart=0.9, gray=false } = {}){
-  const pdfjsLib = await getPdfJs()
-  const loadingTask = pdfjsLib.getDocument({ data: pdfBytes })
-  const pdf = await loadingTask.promise
-  const pageCount = pdf.numPages
-
-  const canvases = []
-  const MAX_LONG_SIDE = Math.floor(1800 * Math.max(0.85, Math.min(1.15, scaleHint)))
-
-  for (let i=1;i<=pageCount;i++){
-    const page = await pdf.getPage(i)
-    const scale = Math.max(0.85, Math.min(1.15, scaleHint))
-    const viewport = page.getViewport({ scale })
-
-    const canvas = document.createElement("canvas")
-    const ctx = canvas.getContext("2d", { willReadFrequently: gray })
-    canvas.width = Math.floor(viewport.width)
-    canvas.height = Math.floor(viewport.height)
-    await page.render({ canvasContext: ctx, viewport }).promise
-
-    const longSide = Math.max(canvas.width, canvas.height)
-    if (longSide > MAX_LONG_SIDE){
-      const factor = MAX_LONG_SIDE / longSide
-      const w = Math.max(1, Math.floor(canvas.width * factor))
-      const h = Math.max(1, Math.floor(canvas.height * factor))
-      const tmp = document.createElement("canvas")
-      tmp.width = w; tmp.height = h
-      const tctx = tmp.getContext("2d")
-      tctx.drawImage(canvas, 0, 0, w, h)
-      if (gray) toGrayscaleInPlace(tmp)
-      canvases.push(tmp)
-    } else {
-      if (gray) toGrayscaleInPlace(canvas)
-      canvases.push(canvas)
-    }
-  }
-  return await buildPdfFromCanvases(canvases, qualityStart)
-}
-
-function toGrayscaleInPlace(canvas){
-  const ctx = canvas.getContext("2d")
-  const img = ctx.getImageData(0,0,canvas.width, canvas.height)
-  const d = img.data
-  for (let i=0;i<d.length;i+=4){
-    const y = (d[i]*0.2126 + d[i+1]*0.7152 + d[i+2]*0.0722)|0
-    d[i]=y; d[i+1]=y; d[i+2]=y
-  }
-  ctx.putImageData(img,0,0)
-}
-
-async function buildPdfFromCanvases(canvases, quality=0.9){
-  const pdfDoc = await PDFDocument.create()
-  const q = Math.max(IMG_MIN_QUALITY, Math.min(1, quality))
-  for (const c of canvases){
-    const dataUrl = c.toDataURL("image/jpeg", q)
-    const resp = await fetch(dataUrl)
-    const jpgBytes = await resp.arrayBuffer()
-    const jpg = await pdfDoc.embedJpg(jpgBytes)
-    const page = pdfDoc.addPage([c.width, c.height])
-    page.drawImage(jpg, { x:0, y:0, width:c.width, height:c.height })
-  }
+  // Guardar sin object streams para compat; no recomprime contenido existente
   return await pdfDoc.save({ useObjectStreams:false })
 }
 
@@ -1057,18 +897,16 @@ async function guardarEdicion(){
         await actualizarMetadatos(editRow.value.id, { verificar_url: verifyUrl })
       }
       const qrUrl = await QRCode.toDataURL(verifyUrl, { margin:1, width:300 })
-      const newBytes = await buildPdfWithQr(editNewFile, qrUrl)
-      const { bytes, ok } = await ensureUnderTarget(newBytes, { grayFallback: true })
-      if (!ok) showToast('warning','Se comprimió al máximo, puede superar 800KB base64')
+      const newBytes = await buildPdfWithQr(editNewFile, qrUrl) // sin rasterizar
 
-      const b64 = bytesToBase64(new Uint8Array(bytes))
+      const b64 = bytesToBase64(new Uint8Array(newBytes))
       const dataUrl = `data:application/pdf;base64,${b64}`
 
       showProgress.value = true
       progress.value = { stage:'uploading', pct:0, detail:'Reemplazando archivo…' }
       await reemplazarArchivo(
         editRow.value.id,
-        { base64: dataUrl, mimeType: 'application/pdf', sizeBytes: bytes.byteLength },
+        { base64: dataUrl, mimeType: 'application/pdf', sizeBytes: newBytes.byteLength, preferirChunks: true },
         (e)=>{ progress.value = e }
       )
       showProgress.value = false
@@ -1076,7 +914,7 @@ async function guardarEdicion(){
 
     await cargarCertificados()
     showEdit.value = false
-    showToast('success','Cambios guardados')
+    showToast('success','Cambios guardados (sin pérdida de nitidez)')
   }catch(e){
     console.error(e)
     showToast('danger','No se pudo guardar la edición')
