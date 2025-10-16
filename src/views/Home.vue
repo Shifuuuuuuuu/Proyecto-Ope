@@ -10,7 +10,8 @@
           </div>
         </div>
       </transition>
-      <!-- ALERTA: contratos con inactividad >= 48h (aparece con animación y se calcula en segundo plano) -->
+
+      <!-- ALERTA: contratos con inactividad >= 48h -->
       <transition name="alert-pop" appear>
         <div
           v-if="showAlert && contratosAtrasados.length"
@@ -64,6 +65,7 @@
           </div>
         </div>
       </transition>
+
       <div v-if="mostrarInstrucciones" class="alert alert-warning border">
         <div class="d-flex justify-content-between align-items-start">
           <div>
@@ -77,11 +79,13 @@
           <button class="btn-close" @click="mostrarInstrucciones = false"></button>
         </div>
       </div>
+
       <h2 class="text-center mb-1">Contrato Asignado</h2>
       <p class="text-center text-muted mb-4">
         Período de: <strong>{{ etiquetaPeriodo }}</strong>
       </p>
-      <!-- Accesos rápidos + Volver (alineados) -->
+
+      <!-- Accesos rápidos + Volver -->
       <div class="d-flex flex-wrap justify-content-start gap-2 mb-4">
         <button class="btn btn-outline-secondary"
                 @click="$router.back()"
@@ -89,7 +93,6 @@
           <i class="bi bi-arrow-left-circle me-1"></i> Volver al menú
         </button>
 
-        <!-- Historial (si está logueado) -->
         <router-link
           v-if="estaLogueado"
           class="btn btn-outline-secondary"
@@ -97,7 +100,6 @@
           <i class="bi bi-clock-history me-1"></i> Historial
         </router-link>
 
-        <!-- Editor Equipos (solo operador o admin) -->
         <router-link
           v-if="rolUsuario === 'operador' || rolUsuario === 'admin'"
           class="btn btn-outline-secondary"
@@ -121,7 +123,7 @@
               <div class="card-body">
                 <!-- Cabecera responsiva -->
                 <div class="contrato-row">
-                  <!-- Título (full al hover/tap) -->
+                  <!-- Título -->
                   <div class="contrato-row__title">
                     <span class="emoji me-2">{{ emojiContrato(contrato.nombre) }}</span>
                     <h4
@@ -148,6 +150,12 @@
                         <input class="form-check-input" type="checkbox" v-model="autoAvance" :id="`swAuto-${contrato.id}`">
                         <label class="form-check-label d-none d-md-inline" :for="`swAuto-${contrato.id}`">Auto-avance</label>
                       </div>
+
+                      <!-- Selección múltiple -->
+                      <div class="form-check form-switch me-2">
+                        <input class="form-check-input" type="checkbox" v-model="selectionMode" :id="`swSel-${contrato.id}`">
+                        <label class="form-check-label d-none d-md-inline" :for="`swSel-${contrato.id}`">Selección múltiple</label>
+                      </div>
                     </div>
 
                     <div class="actions-toolbar">
@@ -155,8 +163,6 @@
                       <button class="btn btn-outline-secondary"
                               @click="toggleZoomTabla">
                         <i :class="zoomTabla ? 'bi bi-zoom-in' : 'bi bi-zoom-out'"></i>
-                        <span class="d-none d-sm-inline ms-1">
-                        </span>
                       </button>
 
                       <button class="btn btn-outline-primary"
@@ -186,6 +192,7 @@
                           {{ descargandoExcel ? 'Generando…' : 'Descargar Excel' }}
                         </span>
                       </button>
+
                       <button class="btn btn-outline-dark"
                               @click="$router.push({ name:'ContratoStats', params:{ contratoId: contrato.id }})"
                               :disabled="loadingContrato[contrato.id]">
@@ -200,8 +207,32 @@
                         <i class="bi bi-file-earmark-text"></i>
                         <span class="d-none d-sm-inline ms-1">OTs</span>
                       </button>
-                      
                     </div>
+                  </div>
+                </div>
+
+                <!-- Barra de acciones por selección -->
+                <div v-if="expandedContrato === contrato.id && selectedCellsCount > 0" class="alert alert-dark d-flex align-items-center justify-content-between gap-2 mb-2 py-2 px-3">
+                  <div class="d-flex align-items-center gap-3">
+                    <strong class="me-1">Seleccionadas:</strong>
+                    <span class="badge text-bg-secondary">{{ selectedCellsCount }}</span>
+                    <span class="text-muted small">({{ selectionContratoNombre }})</span>
+                  </div>
+
+                  <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <div class="btn-group" role="group" aria-label="Asignar estado rápido">
+                      <button class="btn btn-sm btn-outline-success" @click="applyBatchQuick('D')">Marcar D</button>
+                      <button class="btn btn-sm btn-outline-danger"  @click="applyBatchQuick('F')">Marcar F</button>
+                      <button class="btn btn-sm btn-outline-warning" @click="applyBatchQuick('M')">Marcar M</button>
+                    </div>
+
+                    <button class="btn btn-sm btn-primary" @click="openBatchModal">
+                      Aplicar con comentario…
+                    </button>
+
+                    <button class="btn btn-sm btn-outline-secondary" @click="clearSelection">
+                      Limpiar selección
+                    </button>
                   </div>
                 </div>
 
@@ -226,7 +257,7 @@
                         </div>
 
                         <div class="card-body p-0">
-                          <div class="scroll-horizontal">
+                          <div class="scroll-horizontal no-select">
                             <table
                               class="table table-bordered table-sm text-center align-middle mb-0"
                               :class="[tablaClaseModo, { 'tabla-zoom-out': zoomTabla }]"
@@ -260,14 +291,18 @@
                                       @click.stop="abrirGestorDocs(equipo)"
                                       :disabled="subiendoDocs"
                                     >
-                                    <i class="bi bi-paperclip"></i>
+                                      <i class="bi bi-paperclip"></i>
                                     </button>
                                   </td>
+
                                   <template v-for="(dia, diaIndex) in diasPorContrato(contrato.id)" :key="'turno-' + dia">
                                     <!-- A -->
                                     <td class="position-relative p-1"
-                                        @click="modoAcciones && abrirHistorial(equipo.id, 'A', dia)"
-                                        @dblclick="modoAcciones && abrirComentario(equipo.id, 'A', dia)">
+                                        :class="{ 'cell-selected': isSelected(equipo.id, 'A', dia) }"
+                                        @mousedown.prevent.stop="onCellMouseDown(equipo.id, 'A', dia, contrato.id)"
+                                        @mouseenter="onCellMouseEnter(equipo.id, 'A', dia, contrato.id)"
+                                        @click="selectionMode ? onCellClickSelect(equipo.id, 'A', dia, contrato.id) : (modoAcciones && abrirHistorial(equipo.id, 'A', dia))"
+                                        @dblclick="!selectionMode && modoAcciones && abrirComentario(equipo.id, 'A', dia)">
                                       <span class="cell-letter-visible">
                                         {{ getValorCelda(`${equipo.id}-A-${dia}`) }}
                                       </span>
@@ -286,7 +321,7 @@
                                         :readonly="rolUsuario === 'visualizador' || !puedeEditar(timestampsCelda[`${equipo.id}-A-${dia}`])"
                                         :title="generarTooltip(`${equipo.id}-A-${dia}`)"
                                       />
-                                      <div class="celda-actions" v-if="!modoAcciones && !isVisualizador">
+                                      <div class="celda-actions" v-if="!modoAcciones && !isVisualizador && !selectionMode">
                                         <button class="btn btn-light btn-xs"
                                                 title="Agregar/Editar comentario"
                                                 @click.stop="abrirComentario(`${equipo.id}`, 'A', dia)">📝</button>
@@ -295,8 +330,11 @@
 
                                     <!-- B -->
                                     <td class="position-relative p-1"
-                                        @click="modoAcciones && abrirHistorial(equipo.id, 'B', dia)"
-                                        @dblclick="modoAcciones && abrirComentario(equipo.id, 'B', dia)">
+                                        :class="{ 'cell-selected': isSelected(equipo.id, 'B', dia) }"
+                                        @mousedown.prevent.stop="onCellMouseDown(equipo.id, 'B', dia, contrato.id)"
+                                        @mouseenter="onCellMouseEnter(equipo.id, 'B', dia, contrato.id)"
+                                        @click="selectionMode ? onCellClickSelect(equipo.id, 'B', dia, contrato.id) : (modoAcciones && abrirHistorial(equipo.id, 'B', dia))"
+                                        @dblclick="!selectionMode && modoAcciones && abrirComentario(equipo.id, 'B', dia)">
                                       <span class="cell-letter-visible">
                                         {{ getValorCelda(`${equipo.id}-B-${dia}`) }}
                                       </span>
@@ -315,7 +353,7 @@
                                         :readonly="rolUsuario === 'visualizador' || !puedeEditar(timestampsCelda[`${equipo.id}-B-${dia}`])"
                                         :title="generarTooltip(`${equipo.id}-B-${dia}`)"
                                       />
-                                      <div class="celda-actions" v-if="!modoAcciones && !isVisualizador">
+                                      <div class="celda-actions" v-if="!modoAcciones && !isVisualizador && !selectionMode">
                                         <button class="btn btn-light btn-xs"
                                                 title="Agregar/Editar comentario"
                                                 @click.stop="abrirComentario(`${equipo.id}`, 'B', dia)">📝</button>
@@ -382,7 +420,7 @@
             </div>
           </div>
 
-          <!-- Modal Comentario -->
+          <!-- Modal Comentario individual -->
           <div class="modal fade show" tabindex="-1" style="display:block;" v-if="comentarioVisible" @click.self="comentarioVisible=false">
             <div class="modal-dialog">
               <div class="modal-content">
@@ -454,25 +492,26 @@
                         </div>
 
                         <div class="d-flex gap-2">
-                        <!-- Ver IMAGEN -->
-                        <button
-                          v-if="esImagen(d.tipo, d.nombre)"
-                          class="btn btn-sm btn-outline-primary"
-                          @click="abrirPreviewPorId(d._id)"
-                          title="Ver"
-                        >
-                          <i class="bi bi-eye"></i>
-                        </button>
+                          <!-- Ver IMAGEN -->
+                          <button
+                            v-if="esImagen(d.tipo, d.nombre)"
+                            class="btn btn-sm btn-outline-primary"
+                            @click="abrirPreviewPorId(d._id)"
+                            title="Ver"
+                          >
+                            <i class="bi bi-eye"></i>
+                          </button>
 
-                        <!-- Ver PDF -->
-                        <button
-                          v-if="esPDF(d.tipo, d.nombre)"
-                          class="btn btn-sm btn-outline-primary"
-                          @click="abrirPDF(d)"
-                          title="Ver"
-                        >
-                          <i class="bi bi-eye"></i>
-                        </button>
+                          <!-- Ver PDF -->
+                          <button
+                            v-if="esPDF(d.tipo, d.nombre)"
+                            class="btn btn-sm btn-outline-primary"
+                            @click="abrirPDF(d)"
+                            title="Ver"
+                          >
+                            <i class="bi bi-eye"></i>
+                          </button>
+
                           <a
                             class="btn btn-sm btn-outline-secondary"
                             :href="`data:${d.tipo};base64,${d.base64}`"
@@ -511,7 +550,7 @@
                   </div>
                 </div>
 
-                <!-- VISOR DE IMAGEN DENTRO DEL MISMO MODAL -->
+                <!-- VISOR DE IMAGEN -->
                 <transition name="fade">
                   <div v-if="preview.abierto" class="preview-overlay" @click.self="cerrarPreview">
                     <div class="preview-toolbar">
@@ -544,6 +583,8 @@
                     </div>
                   </div>
                 </transition>
+
+                <!-- VISOR PDF -->
                 <transition name="fade">
                   <div v-if="pdfViewer.abierto" class="pdf-overlay" @click.self="cerrarPDF">
                     <div class="pdf-toolbar">
@@ -570,6 +611,58 @@
             </div>
           </div>
 
+          <!-- Modal aplicación en lote -->
+          <div class="modal fade show" tabindex="-1" style="display:block;" v-if="batchModal.visible" @click.self="closeBatchModal">
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title">
+                    Aplicar a {{ selectedCellsCount }} celdas
+                  </h5>
+                  <button type="button" class="btn-close" @click="closeBatchModal"></button>
+                </div>
+
+                <div class="modal-body">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Estado</label>
+                    <div class="btn-group" role="group">
+                      <button type="button" class="btn" :class="{'btn-success': batchModal.estado==='D', 'btn-outline-success': batchModal.estado!=='D'}" @click="batchModal.estado='D'">D</button>
+                      <button type="button" class="btn" :class="{'btn-danger':  batchModal.estado==='F', 'btn-outline-danger':  batchModal.estado!=='F'}" @click="batchModal.estado='F'">F</button>
+                      <button type="button" class="btn" :class="{'btn-warning': batchModal.estado==='M', 'btn-outline-warning': batchModal.estado!=='M'}" @click="batchModal.estado='M'">M</button>
+                    </div>
+                  </div>
+
+                  <div class="mb-2">
+                    <label class="form-label fw-semibold">¿Deseas agregar comentario?</label>
+                    <div class="d-flex gap-2">
+                      <button class="btn" :class="batchModal.quiereComentario ? 'btn-primary' : 'btn-outline-primary'" @click="batchModal.quiereComentario=true">Sí</button>
+                      <button class="btn" :class="!batchModal.quiereComentario ? 'btn-secondary' : 'btn-outline-secondary'" @click="batchModal.quiereComentario=false">No</button>
+                    </div>
+                  </div>
+
+                  <div v-if="batchModal.quiereComentario" class="mt-2">
+                    <textarea class="form-control" rows="4" v-model="batchModal.comentario" placeholder="Comentario (opcional)"></textarea>
+                    <small class="text-muted">Si lo dejas vacío, se guardará sin comentario.</small>
+                  </div>
+
+                  <div v-if="batchFeedback.text" class="alert mt-3" :class="batchFeedback.error ? 'alert-danger' : 'alert-info'">
+                    {{ batchFeedback.text }}
+                  </div>
+                </div>
+
+                <div class="modal-footer">
+                  <button class="btn btn-outline-secondary" @click="closeBatchModal">Cancelar</button>
+                  <button class="btn btn-primary" :disabled="!batchModal.estado || applyingBatch" @click="applyBatch">
+                    <span v-if="!applyingBatch">Aplicar</span>
+                    <span v-else class="d-inline-flex align-items-center gap-2">
+                      <span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Aplicando…
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div> <!-- row -->
       </div>
     </div>
@@ -577,19 +670,20 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, defineOptions, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, computed, defineOptions, nextTick, watch } from 'vue'
 import { db } from '../firebase/config'
 import {
   collection, getDocs, setDoc, doc, getDoc, addDoc, deleteDoc,
   query, where, orderBy, limit, serverTimestamp
 } from 'firebase/firestore'
-import { watch } from 'vue'
 
 import { getAuth, onAuthStateChanged } from 'firebase/auth'
 import * as XLSX from 'xlsx-js-style'
 import { saveAs } from 'file-saver'
 
 defineOptions({ name: 'HomeView' })
+
+/* ======================= DOCUMENTOS POR EQUIPO ======================= */
 const descargandoExcel = ref(false)
 function esPDF(mime = '', nombre = '') {
   const t = (mime || '').toLowerCase()
@@ -598,9 +692,7 @@ function esPDF(mime = '', nombre = '') {
   return ext === 'pdf'
 }
 const pdfViewer = ref({ abierto: false, url: '', nombre: '' })
-
 function abrirPDF(d) {
-  // revoca el URL anterior si existía
   if (pdfViewer.value.url) URL.revokeObjectURL(pdfViewer.value.url)
   pdfViewer.value = { abierto: true, url: blobUrl(d), nombre: d.nombre }
 }
@@ -608,8 +700,6 @@ function cerrarPDF() {
   if (pdfViewer.value.url) URL.revokeObjectURL(pdfViewer.value.url)
   pdfViewer.value = { abierto: false, url: '', nombre: '' }
 }
-
-// Crea un Blob URL a partir del base64 (sirve para PDF y otros)
 function blobUrl(d) {
   const tipoOk = normalizaMime(d.tipo, d.nombre)
   const bin = atob(d.base64)
@@ -619,20 +709,13 @@ function blobUrl(d) {
   return URL.createObjectURL(blob)
 }
 
-/* =======================
-   DOCUMENTOS POR EQUIPO
-======================= */
 const docsVisible = ref(false)
-const docsEquipo = ref([])           // [{ _id, nombre, tipo, size, base64, timestamp, usuario }]
+const docsEquipo = ref([])
 const cargandoDocs = ref(false)
 const subiendoDocs = ref(false)
 const textoProgresoSubida = ref('')
 const fileInputRef = ref(null)
-const docMeta = ref({
-  equipoId: '',
-  equipoNombre: '',
-  equipoPatente: ''
-})
+const docMeta = ref({ equipoId: '', equipoNombre: '', equipoPatente: '' })
 
 function abrirGestorDocs(equipo) {
   docMeta.value = {
@@ -643,24 +726,19 @@ function abrirGestorDocs(equipo) {
   docsVisible.value = true
   cargarDocsEquipo()
 }
-
 function cerrarGestorDocs() {
-  if (subiendoDocs.value) return // evita cerrar mientras sube
+  if (subiendoDocs.value) return
   docsVisible.value = false
   docsEquipo.value = []
   textoProgresoSubida.value = ''
 }
-
 async function cargarDocsEquipo() {
   cargandoDocs.value = true
   try {
     const col = collection(db, 'equipos', docMeta.value.equipoId, 'documentos')
     const q = query(col, orderBy('timestamp', 'desc'))
     const snap = await getDocs(q)
-    docsEquipo.value = snap.docs.map(d => ({
-      _id: d.id,
-      ...d.data()
-    }))
+    docsEquipo.value = snap.docs.map(d => ({ _id: d.id, ...d.data() }))
   } catch (e) {
     console.error('Error al cargar documentos:', e)
     docsEquipo.value = []
@@ -668,20 +746,13 @@ async function cargarDocsEquipo() {
     cargandoDocs.value = false
   }
 }
-
-function dispararFilePicker() {
-  fileInputRef.value?.click?.()
-}
-
+function dispararFilePicker() { fileInputRef.value?.click?.() }
 function leerArchivoComoBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => {
-      // reader.result = "data:<mime>;base64,...." si usáramos readAsDataURL,
-      // pero preferimos leer como binario y convertir a base64 puro.
       const base64 = btoa(
-        new Uint8Array(reader.result)
-          .reduce((data, byte) => data + String.fromCharCode(byte), '')
+        new Uint8Array(reader.result).reduce((data, byte) => data + String.fromCharCode(byte), '')
       )
       resolve(base64)
     }
@@ -689,7 +760,6 @@ function leerArchivoComoBase64(file) {
     reader.readAsArrayBuffer(file)
   })
 }
-// --- Helpers (reemplaza los actuales esImagen/dataUrl por estos)
 function mimeFromExt(nombre = '') {
   const ext = (nombre.split('.').pop() || '').toLowerCase()
   const mapa = {
@@ -700,9 +770,7 @@ function mimeFromExt(nombre = '') {
   }
   return mapa[ext] || ''
 }
-
 function normalizaMime(tipo, nombre) {
-  // si viene vacío o genérico, intenta inferir por extensión
   const t = (tipo || '').toLowerCase()
   if (!t || t === 'application/octet-stream') {
     const inferido = mimeFromExt(nombre)
@@ -710,34 +778,19 @@ function normalizaMime(tipo, nombre) {
   }
   return t
 }
-
-// Ahora acepta MIME o extensión
 function esImagen(mime = '', nombre = '') {
   const t = (mime || '').toLowerCase()
   if (t.startsWith('image/')) return true
   const ext = (nombre.split('.').pop() || '').toLowerCase()
   return ['jpg','jpeg','png','gif','webp','bmp','heic','heif','svg'].includes(ext)
 }
-
-// Usa MIME normalizado o el inferido para construir el data URL
 function dataUrl(d) {
   const tipoOk = normalizaMime(d.tipo, d.nombre)
   return `data:${tipoOk};base64,${d.base64}`
 }
-
-
-// --- Derivados: solo imágenes del equipo
 const imagenesEquipo = computed(() => docsEquipo.value.filter(d => esImagen(d.tipo)))
-
-// --- Estado visor
-const preview = ref({
-  abierto: false,
-  index: 0,
-  zoom: 1
-})
+const preview = ref({ abierto: false, index: 0, zoom: 1 })
 const imagenActual = computed(() => imagenesEquipo.value[preview.value.index] || null)
-
-// --- Acciones visor
 function abrirPreviewIndex(i = 0) {
   if (!imagenesEquipo.value.length) return
   preview.value.index = Math.min(Math.max(0, i), imagenesEquipo.value.length - 1)
@@ -748,30 +801,13 @@ function abrirPreviewPorId(id) {
   const idx = imagenesEquipo.value.findIndex(d => d._id === id)
   if (idx >= 0) abrirPreviewIndex(idx)
 }
-function cerrarPreview() {
-  preview.value.abierto = false
-  preview.value.zoom = 1
-}
-function nextPreview() {
-  if (preview.value.index < imagenesEquipo.value.length - 1) {
-    preview.value.index++
-    preview.value.zoom = 1
-  }
-}
-function prevPreview() {
-  if (preview.value.index > 0) {
-    preview.value.index--
-    preview.value.zoom = 1
-  }
-}
+function cerrarPreview() { preview.value.abierto = false; preview.value.zoom = 1 }
+function nextPreview() { if (preview.value.index < imagenesEquipo.value.length - 1) { preview.value.index++; preview.value.zoom = 1 } }
+function prevPreview() { if (preview.value.index > 0) { preview.value.index--; preview.value.zoom = 1 } }
 function zoomIn()  { preview.value.zoom = Math.min(preview.value.zoom + 0.2, 4) }
 function zoomOut() { preview.value.zoom = Math.max(preview.value.zoom - 0.2, 0.25) }
 function resetZoom(){ preview.value.zoom = 1 }
-function onWheelZoom(e){
-  if (e.deltaY > 0) zoomOut(); else zoomIn()
-}
-
-// --- Atajos de teclado cuando el visor está abierto
+function onWheelZoom(e){ if (e.deltaY > 0) zoomOut(); else zoomIn() }
 function keyHandler(e){
   if (!preview.value.abierto) return
   if (e.key === 'Escape') { e.preventDefault(); cerrarPreview() }
@@ -781,47 +817,22 @@ function keyHandler(e){
   if (e.key === '-') { e.preventDefault(); zoomOut() }
   if (e.key === '0') { e.preventDefault(); resetZoom() }
 }
-
-// Montar/desmontar listener cuando el modal de docs está visible
-watch(docsVisible, (v)=>{
-  if (v) {
-    window.addEventListener('keydown', keyHandler)
-  } else {
-    window.removeEventListener('keydown', keyHandler)
-    cerrarPreview()
-  }
-})
-
+watch(docsVisible, (v)=>{ if (v) window.addEventListener('keydown', keyHandler); else { window.removeEventListener('keydown', keyHandler); cerrarPreview() } })
 async function onFilesSelected(e) {
   const files = Array.from(e.target.files || [])
   if (!files.length) return
-
-  // Info del usuario que sube
   const auth = getAuth()
   const currentUser = auth.currentUser
   let usuario = currentUser?.email || 'desconocido'
-
   subiendoDocs.value = true
   textoProgresoSubida.value = `Preparando...`
-
   try {
-    const total = files.length
-    let idx = 0
-
+    const total = files.length; let idx = 0
     for (const file of files) {
-      idx++
-      textoProgresoSubida.value = `Cargando ${idx}/${total} (${file.name})...`
-
-      // Seguridad básica: límite razonable de tamaño para Firestore + base64
-      // (ej. 400 KB por archivo ~ 530 KB en base64) -> ajusta si lo deseas
+      idx++; textoProgresoSubida.value = `Cargando ${idx}/${total} (${file.name})...`
       const MAX_BYTES = 400 * 1024
-      if (file.size > MAX_BYTES) {
-        console.warn(`Archivo omitido por tamaño: ${file.name} (${(file.size/1024).toFixed(0)} KB)`)
-        continue
-      }
-
+      if (file.size > MAX_BYTES) { console.warn(`Archivo omitido por tamaño: ${file.name}`); continue }
       const base64 = await leerArchivoComoBase64(file)
-
       const payload = {
         nombre: file.name,
         tipo: file.type || 'application/octet-stream',
@@ -830,26 +841,18 @@ async function onFilesSelected(e) {
         timestamp: serverTimestamp(),
         usuario
       }
-
       await addDoc(collection(db, 'equipos', docMeta.value.equipoId, 'documentos'), payload)
     }
-
-    // recargar listado
     await cargarDocsEquipo()
     textoProgresoSubida.value = `Listo`
-    // limpiar input
     if (fileInputRef.value) fileInputRef.value.value = ''
   } catch (err) {
     console.error('Error subiendo documentos:', err)
     alert('Ocurrió un error subiendo los documentos. Intenta nuevamente.')
   } finally {
-    setTimeout(() => {
-      subiendoDocs.value = false
-      textoProgresoSubida.value = ''
-    }, 400)
+    setTimeout(() => { subiendoDocs.value = false; textoProgresoSubida.value = '' }, 400)
   }
 }
-
 async function eliminarDoc(d) {
   const ok = confirm(`¿Eliminar el documento "${d.nombre}"?`)
   if (!ok) return
@@ -862,91 +865,54 @@ async function eliminarDoc(d) {
   }
 }
 
-/* =======================
-   PERIODO VISIBLE (reactivo)
-======================= */
-const mesOffset = ref(0) // 0 = mes actual, -1 = mes pasado
-
-const baseDate = computed(() => {
-  const hoy = new Date()
-  return new Date(hoy.getFullYear(), hoy.getMonth() + mesOffset.value, 1, 0, 0, 0, 0)
-})
-
+/* ======================= PERIODO VISIBLE ======================= */
+const mesOffset = ref(0)
+const baseDate = computed(() => { const hoy = new Date(); return new Date(hoy.getFullYear(), hoy.getMonth() + mesOffset.value, 1, 0, 0, 0, 0) })
 const year = computed(() => baseDate.value.getFullYear())
-const mes  = computed(() => baseDate.value.getMonth()) // 0..11
-
+const mes  = computed(() => baseDate.value.getMonth())
 const inicioMes = computed(() => new Date(year.value, mes.value, 1, 0, 0, 0, 0))
 const finMes    = computed(() => new Date(year.value, mes.value + 1, 1, 0, 0, 0, 0))
-
-const nombreMesCorto = computed(() =>
-  baseDate.value.toLocaleString('default', { month: 'short' }).toLowerCase()
-)
-const nombreMesLargo = computed(() => {
-  const s = baseDate.value.toLocaleString('default', { month: 'long' })
-  return s.charAt(0).toUpperCase() + s.slice(1)
-})
+const nombreMesCorto = computed(() => baseDate.value.toLocaleString('default', { month: 'short' }).toLowerCase())
+const nombreMesLargo = computed(() => { const s = baseDate.value.toLocaleString('default', { month: 'long' }); return s.charAt(0).toUpperCase() + s.slice(1) })
 const etiquetaPeriodo = computed(() => `${nombreMesLargo.value} ${year.value}`)
-
 const diasEnMes = computed(() => new Date(year.value, mes.value + 1, 0).getDate())
-
-// dd-mesCorto (01-ago)
-const diasDelMes = computed(() => {
-  return Array.from({ length: diasEnMes.value }, (_, i) => {
-    const d = i + 1
-    return `${String(d).padStart(2, '0')}-${nombreMesCorto.value}`
-  })
-})
-// Solo días hábiles (lun–vie)
+const diasDelMes = computed(() => Array.from({ length: diasEnMes.value }, (_, i) => `${String(i+1).padStart(2,'0')}-${nombreMesCorto.value}`))
 const diasHabilesDelMes = computed(() => {
   const arr = []
   for (let d = 1; d <= diasEnMes.value; d++) {
     const dt = new Date(year.value, mes.value, d)
-    const day = dt.getDay() // 0=Dom..6=Sab
-    if (day !== 0 && day !== 6) {
-      arr.push(`${String(d).padStart(2,'0')}-${nombreMesCorto.value}`)
-    }
+    const day = dt.getDay()
+    if (day !== 0 && day !== 6) arr.push(`${String(d).padStart(2,'0')}-${nombreMesCorto.value}`)
   }
   return arr
 })
 
-/* =======================
-   STATE GENERAL
-======================= */
+/* ======================= STATE GENERAL ======================= */
 const mostrarInstrucciones = ref(true)
 const loading = ref(true)
 const rolUsuario = ref('')
-const estaLogueado = ref(false) 
+const estaLogueado = ref(false)
 const contratosUsuario = ref([])
-const auth = getAuth() 
+const auth = getAuth()
 const isVisualizador = computed(() => (rolUsuario.value || '').toLowerCase() === 'visualizador')
-
 const modoAcciones = ref(false)
 const autoAvance = ref(false)
 const tablaClaseModo = computed(() => modoAcciones.value ? 'modo-acciones' : '')
-
-/* Zoom de la tabla D/F/M */
 const zoomTabla = ref(false)
 function toggleZoomTabla() { zoomTabla.value = !zoomTabla.value }
-
-/* “Mostrar nombre completo” al hover/tap */
 const hoverContratoId = ref(null)
 const nombreExpandidoId = ref(null)
-function toggleNombreExpand(id) {
-  nombreExpandidoId.value = (nombreExpandidoId.value === id) ? null : id
-}
+function toggleNombreExpand(id) { nombreExpandidoId.value = (nombreExpandidoId.value === id) ? null : id }
+
 onMounted(() => {
   onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      estaLogueado.value = true
-      await obtenerContratosDelUsuario()
-    } else {
-      estaLogueado.value = false
-    }
+    if (user) { estaLogueado.value = true; await obtenerContratosDelUsuario() }
+    else { estaLogueado.value = false }
     loading.value = false
   })
 })
 
-/* Carga por contrato (lazy + caché) */
+/* Carga por contrato */
 const loadingContrato = ref({})
 const loadingConteo = ref({})
 const conteoEquipos = ref({})
@@ -963,12 +929,7 @@ const savedBlinkKey = ref('')
 
 /* ====== Letras y mapeos ====== */
 const ALLOWED = ['D','F','M']
-const letraToNombre = (l) => ({
-  D: 'DISPONIBLE',
-  F: 'FUERA DE SERVICIO',
-  M: 'MANTENCIÓN',
-}[l] || '')
-
+const letraToNombre = (l) => ({ D:'DISPONIBLE', F:'FUERA DE SERVICIO', M:'MANTENCIÓN' }[l] || '')
 const nombreToLetra = (n) => {
   const s = String(n || '').toUpperCase()
   if (s.includes('DISP')) return 'D'
@@ -997,73 +958,49 @@ function focusCell(contratoId, categoria, row, dia, turno) {
 }
 
 /* ====== DÍAS VISIBLES POR CONTRATO ====== */
-function normaliza(txt='') {
-  return String(txt).toLowerCase()
-    .normalize('NFD').replace(/\p{Diacritic}/gu,'')
-    .replace(/\s+/g,' ').trim()
-}
+function normaliza(txt='') { return String(txt).toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/\s+/g,' ').trim() }
 function isWeekdaysOnlyContratoId(contratoId) {
   const c = contratosUsuario.value.find(x => x.id === contratoId)
   if (!c) return false
   const n = normaliza(c.nombre)
   const esUrbSanBern = n.includes('urbano') && n.includes('san bernardo')
   const esUrbOlivar  = n.includes('urbano') && n.includes('olivar')
-  const esHormPredo  = (n.includes('hormigon') || n.includes('hormigones')) &&
-                       (n.includes('predos') || n.includes('pre dos') || n.includes('predosificados'))
+  const esHormPredo  = (n.includes('hormigon') || n.includes('hormigones')) && (n.includes('predos') || n.includes('pre dos') || n.includes('predosificados'))
   return esUrbSanBern || esUrbOlivar || esHormPredo
 }
-function diasPorContrato(contratoId) {
-  return isWeekdaysOnlyContratoId(contratoId) ? diasHabilesDelMes.value : diasDelMes.value
-}
-function diasNumericosPorContrato(contratoId) {
-  const base = diasPorContrato(contratoId)
-  return base.map(s => s.slice(0,2))
-}
+function diasPorContrato(contratoId) { return isWeekdaysOnlyContratoId(contratoId) ? diasHabilesDelMes.value : diasDelMes.value }
+function diasNumericosPorContrato(contratoId) { return diasPorContrato(contratoId).map(s => s.slice(0,2)) }
 
 /* ====== Entrada/navegación ====== */
 function onCellKeydown(e, contratoId, categoria, rowIdx, diaIdx, turno, totalRows, totalDias) {
-  if (e.key === 'Enter' || e.key === 'Tab') {
-    e.preventDefault()
-    focusCell(contratoId, categoria, rowIdx, diaIdx, turno)
-    return
-  }
+  if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); focusCell(contratoId, categoria, rowIdx, diaIdx, turno); return }
   const k = e.key
   if (!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(k)) return
   e.preventDefault()
-
   const perDay = 2
   let col = diaIdx * perDay + (turno === 'A' ? 0 : 1)
   const maxCol = totalDias * perDay - 1
   let r = rowIdx
-
   if (k === 'ArrowRight' && col < maxCol) col++
   if (k === 'ArrowLeft'  && col > 0)     col--
   if (k === 'ArrowDown'  && r < totalRows - 1) r++
   if (k === 'ArrowUp'    && r > 0)            r--
-
   const newDia = Math.floor(col / perDay)
   const newTurno = (col % 2 === 0) ? 'A' : 'B'
   focusCell(contratoId, categoria, r, newDia, newTurno)
 }
-
 function onCellInput(e, clave, dia, jornada, contratoId, categoria, rowIdx, diaIdx, totalRows, totalDias) {
   let val = (e.target.value || '').toUpperCase().slice(0,1)
   e.target.value = val
-  if (!ALLOWED.includes(val)) {
-    inputValues.value[clave] = ''
-    return
-  }
+  if (!ALLOWED.includes(val)) { inputValues.value[clave] = ''; return }
   inputValues.value[clave] = val
   const equipoId = clave.split('-')[0]
   const obsActual = observacionesCelda.value[clave] || ''
   validarYActualizar(equipoId, dia, val, jornada, obsActual)
 }
 
-/* =======================
-   UTILIDADES
-======================= */
+/* ======================= UTILIDADES ======================= */
 const contratosUsuarioValidos = computed(() => contratosUsuario.value.filter(c => c && c.id))
-
 const emojiContrato = (nombreContrato) => {
   const nombre = (nombreContrato || '').toLowerCase()
   if (nombre.includes('urbanos olivar') || nombre.includes('san bernardo')) return '🏙️'
@@ -1074,7 +1011,6 @@ const emojiContrato = (nombreContrato) => {
   if (nombre.includes('chuquicamata') || nombre.includes('pmchs')) return '🏗️'
   return '📁'
 }
-
 const formatearFechaHora = (ts) => {
   if (!ts) return '—'
   const d = ts.toDate ? ts.toDate() : new Date(ts)
@@ -1085,14 +1021,12 @@ const formatearFechaHora = (ts) => {
   const mi = String(d.getMinutes()).padStart(2, '0')
   return `${dd}-${mm}-${yyyy} ${hh}:${mi}`
 }
-
 const colorCelda = (valor) => {
   if (valor === 'D') return 'bg-success text-white'
   if (valor === 'F') return 'bg-danger text-white'
   if (valor === 'M') return 'bg-warning text-dark'
   return ''
 }
-
 const puedeEditar = (docTimestamp) => {
   if (!docTimestamp) return true
   const tiempoRegistro = docTimestamp.toDate ? docTimestamp.toDate() : new Date(docTimestamp)
@@ -1105,9 +1039,7 @@ const puedeEditar = (docTimestamp) => {
   if (esHoy) return diferenciaHoras <= 4
   return true
 }
-
 const getValorCelda = (clave) => inputValues.value[clave] || ''
-
 const generarTooltip = (clave) => {
   const estadoLetra = getValorCelda(clave)
   if (!estadoLetra) return ''
@@ -1119,29 +1051,21 @@ const generarTooltip = (clave) => {
   return `Estado: ${estadoTexto}\nObs: ${obs}\nUsuario: ${usuario}\nÚlt. edición: ${cuando}`
 }
 
-/* =======================
-   ALERTA 48H SIN REGISTRO
-======================= */
-const lastTimestampByContrato = ref({}) // { [contratoId]: Date | null }
+/* ======================= ALERTA 48H SIN REGISTRO ======================= */
+const lastTimestampByContrato = ref({})
 const checkingInactividad = ref(false)
-/* NUEVO: control de animación/visibilidad */
 const showAlert = ref(false)
-
 function isSameLocalDay(a, b = new Date()) {
   if (!a) return false
   const d = a instanceof Date ? a : (a?.toDate ? a.toDate() : new Date(a))
-  return d.getFullYear() === b.getFullYear() &&
-         d.getMonth()    === b.getMonth() &&
-         d.getDate()     === b.getDate()
+  return d.getFullYear() === b.getFullYear() && d.getMonth() === b.getMonth() && d.getDate() === b.getDate()
 }
-
 function maxDateSafe(a, b) {
   const da = a ? (a.toDate ? a.toDate() : new Date(a)) : null
   const db = b ? (b.toDate ? b.toDate() : new Date(b)) : null
   if (da && db) return da > db ? da : db
   return da || db || null
 }
-
 function humanizeDiff(fecha) {
   if (!fecha) return 'Nunca'
   const ms = Date.now() - fecha.getTime()
@@ -1152,10 +1076,8 @@ function humanizeDiff(fecha) {
   const dias = Math.floor(horas / 24)
   return dias === 1 ? 'hace 1 día' : `hace ${dias} días`
 }
-
 const contratosAtrasados = computed(() => {
-  const limiteHoras = 48
-  const ahora = new Date()
+  const limiteHoras = 48; const ahora = new Date()
   return contratosUsuarioValidos.value
     .map(c => {
       const t = lastTimestampByContrato.value[c.id] ?? null
@@ -1167,19 +1089,12 @@ const contratosAtrasados = computed(() => {
     })
     .filter(c => c._atrasado)
 })
-
 const contratosNuncaRegistrados = computed(() =>
   contratosUsuarioValidos.value.filter(c => lastTimestampByContrato.value[c.id] === null)
 )
-
 async function fetchUltimoRegistroContrato(contratoId) {
   try {
-    const q1 = query(
-      collection(db, 'operatividad'),
-      where('contratoId', '==', contratoId),
-      orderBy('fecha', 'desc'),
-      limit(50)
-    )
+    const q1 = query(collection(db, 'operatividad'), where('contratoId', '==', contratoId), orderBy('fecha', 'desc'), limit(50))
     const snap = await getDocs(q1)
     if (!snap.empty) {
       let ultimo = null
@@ -1190,16 +1105,9 @@ async function fetchUltimoRegistroContrato(contratoId) {
       })
       if (ultimo) return ultimo
     }
-  } catch (err) {
-    // fallback sin orderBy(fecha)
-  }
-
+  } catch (e){console.error(e)}
   try {
-    const q2 = query(
-      collection(db, 'operatividad'),
-      where('contratoId', '==', contratoId),
-      limit(100)
-    )
+    const q2 = query(collection(db, 'operatividad'), where('contratoId', '==', contratoId), limit(100))
     const snap2 = await getDocs(q2)
     if (!snap2.empty) {
       let ultimo = null
@@ -1210,38 +1118,24 @@ async function fetchUltimoRegistroContrato(contratoId) {
       })
       if (ultimo) return ultimo
     }
-  } catch (err2) {
-    // nada
-  }
+  } catch(e) {console.error(e)}
   return null
 }
-
 async function revisarInactividadContratos() {
   if (!contratosUsuarioValidos.value.length) return
   checkingInactividad.value = true
   try {
     const resultados = {}
-    await Promise.all(
-      contratosUsuarioValidos.value.map(async (c) => {
-        resultados[c.id] = await fetchUltimoRegistroContrato(c.id)
-      })
-    )
+    await Promise.all(contratosUsuarioValidos.value.map(async c => { resultados[c.id] = await fetchUltimoRegistroContrato(c.id) }))
     lastTimestampByContrato.value = resultados
-  } finally {
-    checkingInactividad.value = false
-  }
+  } finally { checkingInactividad.value = false }
 }
-
-/* NUEVO: refresco con animación (oculta, recalcula y vuelve a mostrar) */
 async function refrescarAlertaAnimada() {
   showAlert.value = false
   await revisarInactividadContratos()
   await nextTick()
-  if (contratosAtrasados.value.length > 0) {
-    setTimeout(() => { showAlert.value = true }, 80)
-  }
+  if (contratosAtrasados.value.length > 0) { setTimeout(() => { showAlert.value = true }, 80) }
 }
-
 async function abrirContratoDesdeAlerta(contratoId) {
   if (expandedContrato.value !== contratoId) {
     expandedContrato.value = contratoId
@@ -1251,91 +1145,63 @@ async function abrirContratoDesdeAlerta(contratoId) {
   el?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
 }
 
-/* =======================
-   AUTH + CONTRATOS (INICIAL)
-======================= */
+/* ======================= AUTH + CONTRATOS ======================= */
 async function obtenerContratosDelUsuario() {
   const auth = getAuth()
   const currentUser = auth.currentUser
   if (!currentUser) return
-
   const userDoc = await getDoc(doc(db, 'usuarios', currentUser.uid))
   if (!userDoc.exists()) return
-
   rolUsuario.value = userDoc.data().rol || ''
   const contratosIds = userDoc.data().contratosAsignados || []
   if (!contratosIds.length) return
-
   const chunks = []
   for (let i = 0; i < contratosIds.length; i += 10) chunks.push(contratosIds.slice(i, i + 10))
-
   const results = []
   for (const ids of chunks) {
     const contratosQuery = query(collection(db, 'contratos'), where('__name__', 'in', ids))
     const snapshot = await getDocs(contratosQuery)
     results.push(...snapshot.docs.map(d => ({ id: d.id, ...d.data() })))
   }
-
   contratosUsuario.value = results
-
   for (const c of contratosUsuario.value) cargarConteoEquipos(c.id)
-
-  // Cálculo "en segundo plano" y luego mostramos con animación
   await revisarInactividadContratos()
   await nextTick()
-  if (contratosAtrasados.value.length > 0) {
-    setTimeout(() => { showAlert.value = true }, 120)
-  }
+  if (contratosAtrasados.value.length > 0) setTimeout(() => { showAlert.value = true }, 120)
 }
 
-/* =======================
-   CONTEO RÁPIDO DE EQUIPOS
-======================= */
+/* ======================= CONTEO RÁPIDO ======================= */
 async function cargarConteoEquipos(contratoId) {
   loadingConteo.value[contratoId] = true
   try {
     const qeq = query(collection(db, 'equipos'), where('contratoId', '==', contratoId), limit(1))
     const snap = await getDocs(qeq)
     conteoEquipos.value[contratoId] = snap.empty ? 0 : undefined
-  } finally {
-    loadingConteo.value[contratoId] = false
-  }
+  } finally { loadingConteo.value[contratoId] = false }
 }
 
-/* =======================
-   CARGA LAZY POR CONTRATO
-======================= */
+/* ======================= CARGA LAZY POR CONTRATO ======================= */
 async function cargarContratoDetalle(contratoId, { force = false } = {}) {
   if (!force && equiposByContrato.value[contratoId] && operByContrato.value[contratoId]) return
   loadingContrato.value[contratoId] = true
   try {
-    // 1) Equipos
+    // Equipos
     let equipos = []
     try {
-      const qeOrdered = query(
-        collection(db, 'equipos'),
-        where('contratoId', '==', contratoId),
-        orderBy('nombre_equipo')
-      )
+      const qeOrdered = query(collection(db, 'equipos'), where('contratoId', '==', contratoId), orderBy('nombre_equipo'))
       const se = await getDocs(qeOrdered)
       equipos = se.docs.map(d => ({ id: d.id, ...d.data() }))
-    } catch (err) {
+    } catch {
       const qe = query(collection(db, 'equipos'), where('contratoId', '==', contratoId))
       const se = await getDocs(qe)
       equipos = se.docs
         .map(d => ({ id: d.id, ...d.data() }))
-        .sort((a, b) =>
-          String(a.nombre_equipo || '').localeCompare(
-            String(b.nombre_equipo || ''),
-            'es',
-            { sensitivity: 'base' }
-          )
-        )
+        .sort((a, b) => String(a.nombre_equipo || '').localeCompare(String(b.nombre_equipo || ''), 'es', { sensitivity: 'base' }))
     }
     equiposByContrato.value[contratoId] = equipos
     conteoEquipos.value[contratoId] = equipos.length
 
-    // 2) Operatividad del PERÍODO VISIBLE
+    // Operatividad del período
     const qo = query(
       collection(db, 'operatividad'),
       where('contratoId', '==', contratoId),
@@ -1345,13 +1211,10 @@ async function cargarContratoDetalle(contratoId, { force = false } = {}) {
     const so = await getDocs(qo)
     operByContrato.value[contratoId] = so.docs.map(d => ({ id: d.id, ...d.data() }))
 
-    // 3) Buffers
+    // Buffers
     inicializarValoresDesde(contratoId)
-  } finally {
-    loadingContrato.value[contratoId] = false
-  }
+  } finally { loadingContrato.value[contratoId] = false }
 }
-
 function inicializarValoresDesde(contratoId) {
   const oper = operByContrato.value[contratoId] || []
   for (const item of oper) {
@@ -1359,7 +1222,6 @@ function inicializarValoresDesde(contratoId) {
     const dia = String(date.getDate()).padStart(2, '0')
     const mesNombre = date.toLocaleString('default', { month: 'short' }).toLowerCase()
     const clave = `${item.equipoId}-${item.jornada}-${dia}-${mesNombre}`
-
     inputValues.value[clave] = nombreToLetra(item.estado)
     observacionesCelda.value[clave] = item.observaciones || ''
     const nombre = (item.nombre_completo || '').trim()
@@ -1369,21 +1231,14 @@ function inicializarValoresDesde(contratoId) {
   }
 }
 
-/* =======================
-   UI: EXPAND / COLLAPSE
-======================= */
+/* ======================= UI: EXPAND / COLLAPSE ======================= */
 async function toggleExpand(id) {
-  if (expandedContrato.value === id) {
-    expandedContrato.value = null
-    return
-  }
+  if (expandedContrato.value === id) { expandedContrato.value = null; return }
   expandedContrato.value = id
   await cargarContratoDetalle(id)
 }
 
-/* =======================
-   CAMBIO DE MES
-======================= */
+/* ======================= CAMBIO DE MES ======================= */
 async function toggleMes(contratoIdActual = null) {
   mesOffset.value = (mesOffset.value === 0 ? -1 : 0)
   inputValues.value = {}
@@ -1400,28 +1255,22 @@ async function toggleMes(contratoIdActual = null) {
   }
 }
 
-/* =======================
-   HISTORIAL FOCALIZADO
-======================= */
+/* ======================= HISTORIAL FOCALIZADO ======================= */
 const historialVisible = ref(false)
 const cargandoHistorial = ref(false)
 const historialItems = ref([])
 const historialMeta = ref({ equipoId: '', jornada: '', dia: '' })
-
 function rangoDia(diaStr) {
   const dd = parseInt(diaStr.slice(0, 2))
   const start = new Date(year.value, mes.value, dd, 0, 0, 0, 0)
   const end   = new Date(year.value, mes.value, dd + 1, 0, 0, 0, 0)
   return { start, end }
 }
-
 async function abrirHistorial(equipoId, jornada, dia) {
   historialMeta.value = { equipoId, jornada, dia }
   historialVisible.value = true
   cargandoHistorial.value = true
-
   const { start, end } = rangoDia(dia)
-
   try {
     const qh = query(
       collection(db, 'historial_operatividad'),
@@ -1433,7 +1282,7 @@ async function abrirHistorial(equipoId, jornada, dia) {
     )
     const sh = await getDocs(qh)
     historialItems.value = sh.docs.map(d => ({ id: d.id, ...d.data() }))
-  } catch (err) {
+  } catch {
     const qh = query(
       collection(db, 'historial_operatividad'),
       where('equipoId', '==', equipoId),
@@ -1449,113 +1298,81 @@ async function abrirHistorial(equipoId, jornada, dia) {
         const dbb = b.fecha?.toDate ? b.fecha.toDate() : new Date(b.fecha)
         return da - dbb
       })
-  } finally {
-    cargandoHistorial.value = false
-  }
+  } finally { cargandoHistorial.value = false }
 }
 
-/* =======================
-   COMENTARIO DIFERIDO
-======================= */
+/* ======================= COMENTARIO DIFERIDO (celda individual) ======================= */
 const comentarioVisible = ref(false)
 const comentarioTexto = ref('')
 const comentarioMeta = ref({ equipoId: '', jornada: '', dia: '' })
-
 function abrirComentario(equipoId, jornada, dia) {
-  if (isVisualizador.value) {
-    alert('Tu rol no permite agregar comentarios.')
-    return
-  }
+  if (isVisualizador.value) { alert('Tu rol no permite agregar comentarios.'); return }
   comentarioMeta.value = { equipoId, jornada, dia }
   comentarioTexto.value = observacionesCelda.value[`${equipoId}-${jornada}-${dia}`] || ''
   comentarioVisible.value = true
 }
-
 async function guardarComentario() {
   const { equipoId, jornada, dia } = comentarioMeta.value
   const clave = `${equipoId}-${jornada}-${dia}`
   const letra = getValorCelda(clave)
-  if (!letra) {
-    alert('Primero ingresa D/F/M en la celda antes de comentar.')
-    return
-  }
+  if (!letra) { alert('Primero ingresa D/F/M en la celda antes de comentar.'); return }
   await actualizarSoloComentario(equipoId, dia, letra, jornada, comentarioTexto.value)
   comentarioVisible.value = false
 }
-
 async function actualizarSoloComentario(equipoId, dia, letra, jornada, observaciones) {
-  const estado = letraToNombre(letra)
-  if (!estado) return
-
+  const estado = letraToNombre(letra); if (!estado) return
   const dd = parseInt(dia.slice(0, 2))
   const fecha = new Date(year.value, mes.value, dd)
   const clave = `${equipoId}-${jornada}-${dia}`
-
   const auth = getAuth()
   const currentUser = auth.currentUser
-  let nombre_completo = ''
-  let registradoPor = ''
+  let nombre_completo = ''; let registradoPor = ''
   if (currentUser) {
     registradoPor = currentUser.email || ''
     const userDocRef = doc(db, 'usuarios', currentUser.uid)
     const userSnap = await getDoc(userDocRef)
     if (userSnap.exists()) nombre_completo = userSnap.data().nombre_completo || ''
   }
-
   const docId = `${equipoId}_${jornada}_${dia}`
   const contratoId = buscarContratoIdPorEquipo(equipoId) || ''
-
   await setDoc(doc(db, 'historial_operatividad', `${docId}_${Date.now()}`), {
-    equipoId, contratoId, estado, fecha, jornada,
-    nombre_completo, observaciones, registradoPor,
+    equipoId, contratoId, estado, fecha, jornada, nombre_completo, observaciones, registradoPor,
     accion: 'comentario', timestamp: new Date()
   })
-
   await setDoc(doc(db, 'operatividad', docId), {
-    equipoId, contratoId, estado, fecha, jornada,
-    nombre_completo, observaciones, registradoPor,
+    equipoId, contratoId, estado, fecha, jornada, nombre_completo, observaciones, registradoPor,
     timestamp: new Date()
   })
-
   observacionesCelda.value[clave] = observaciones || ''
   timestampsCelda.value[clave] = new Date()
   savedBlinkKey.value = clave
   setTimeout(() => { if (savedBlinkKey.value === clave) savedBlinkKey.value = '' }, 350)
 }
 
-/* =======================
-   ACTUALIZAR / ELIMINAR CELDA
-======================= */
+/* ======================= ACTUALIZAR / ELIMINAR CELDA ======================= */
 async function eliminarRegistroOperatividad(clave, dia, jornada) {
   const equipoId = clave.split('-')[0]
   const docId = `${equipoId}_${jornada}_${dia}`
-
   const auth = getAuth()
   const currentUser = auth.currentUser
-  let nombre_completo = ''
-  let registradoPor = ''
+  let nombre_completo = ''; let registradoPor = ''
   if (currentUser) {
     registradoPor = currentUser.email || ''
     const userDocRef = doc(db, 'usuarios', currentUser.uid)
     const userSnap = await getDoc(userDocRef)
     if (userSnap.exists()) nombre_completo = userSnap.data().nombre_completo || ''
   }
-
   const dd = parseInt(dia.slice(0, 2))
   const fecha = new Date(year.value, mes.value, dd)
   const contratoId = buscarContratoIdPorEquipo(equipoId) || ''
-
   await deleteDoc(doc(db, 'operatividad', docId))
   timestampsCelda.value[clave] = null
   observacionesCelda.value[clave] = ''
-
   await setDoc(doc(db, 'historial_operatividad', `${docId}_${Date.now()}`), {
-    equipoId, contratoId, estado: 'ELIMINADO', fecha, jornada,
-    nombre_completo, observaciones: '', registradoPor,
+    equipoId, contratoId, estado: 'ELIMINADO', fecha, jornada, nombre_completo, observaciones: '', registradoPor,
     accion: 'eliminacion', timestamp: new Date()
   })
 }
-
 function buscarContratoIdPorEquipo(equipoId) {
   const cId = expandedContrato.value
   if (cId && (equiposByContrato.value[cId] || []).length) {
@@ -1568,11 +1385,8 @@ function buscarContratoIdPorEquipo(equipoId) {
   }
   return null
 }
-
 async function validarYActualizar(equipoId, dia, valor, jornada, observaciones = '') {
-  const estado = letraToNombre(valor)
-  if (!estado) return
-
+  const estado = letraToNombre(valor); if (!estado) return
   const dd = parseInt(dia.slice(0, 2))
   const fecha = new Date(year.value, mes.value, dd)
   const clave = `${equipoId}-${jornada}-${dia}`
@@ -1580,64 +1394,41 @@ async function validarYActualizar(equipoId, dia, valor, jornada, observaciones =
 
   const auth = getAuth()
   const currentUser = auth.currentUser
-  let nombre_completo = ''
-  let registradoPor = ''
+  let nombre_completo = ''; let registradoPor = ''
   if (currentUser) {
     registradoPor = currentUser.email || ''
     const userDocRef = doc(db, 'usuarios', currentUser.uid)
     const userSnap = await getDoc(userDocRef)
     if (userSnap.exists()) nombre_completo = userSnap.data().nombre_completo || ''
   }
-
   const docId = `${equipoId}_${jornada}_${dia}`
   const contratoId = buscarContratoIdPorEquipo(equipoId) || ''
-
   await setDoc(doc(db, 'historial_operatividad', `${docId}_${Date.now()}`), {
-    equipoId, contratoId, estado, fecha, jornada,
-    nombre_completo, observaciones, registradoPor,
+    equipoId, contratoId, estado, fecha, jornada, nombre_completo, observaciones, registradoPor,
     accion: 'actualizacion', timestamp: new Date()
   })
-
   await setDoc(doc(db, 'operatividad', docId), {
-    equipoId, contratoId, estado, fecha, jornada,
-    nombre_completo, observaciones, registradoPor,
+    equipoId, contratoId, estado, fecha, jornada, nombre_completo, observaciones, registradoPor,
     timestamp: new Date()
   })
-
   timestampsCelda.value[clave] = new Date()
   savedBlinkKey.value = clave
   setTimeout(() => { if (savedBlinkKey.value === clave) savedBlinkKey.value = '' }, 350)
 }
-
 async function actualizarValorCelda(clave, dia, valor, jornada) {
   const upper = (valor || '').toUpperCase()
   const yaTieneValor = getValorCelda(clave) !== ''
   const puedeModificar = puedeEditar(timestampsCelda.value[clave])
-
-  if (yaTieneValor && !puedeModificar) {
-    alert('Este turno ya no se puede editar. Solo disponible dentro de las 4 horas del día de registro.')
-    return
-  }
-  if (rolUsuario.value === 'visualizador') {
-    alert('No tienes permisos para editar.')
-    return
-  }
-
-  if (upper === '') {
-    inputValues.value[clave] = ''
-    await eliminarRegistroOperatividad(clave, dia, jornada)
-    return
-  }
+  if (yaTieneValor && !puedeModificar) { alert('Este turno ya no se puede editar. Solo disponible dentro de las 4 horas del día de registro.'); return }
+  if (rolUsuario.value === 'visualizador') { alert('No tienes permisos para editar.'); return }
+  if (upper === '') { inputValues.value[clave] = ''; await eliminarRegistroOperatividad(clave, dia, jornada); return }
   if (!ALLOWED.includes(upper)) return
-
   const obsActual = observacionesCelda.value[clave] || ''
   inputValues.value[clave] = upper
   await validarYActualizar(clave.split('-')[0], dia, upper, jornada, obsActual)
 }
 
-/* =======================
-   AGRUPACIÓN
-======================= */
+/* ======================= AGRUPACIÓN ======================= */
 function equiposPorContratoYCategoria(contratoId) {
   const grupo = {}
   const lista = equiposByContrato.value[contratoId] || []
@@ -1649,19 +1440,13 @@ function equiposPorContratoYCategoria(contratoId) {
   return grupo
 }
 
-/* =======================
-   EXCEL
-======================= */
+/* ======================= EXCEL ======================= */
 async function descargarExcelContrato(contrato) {
   descargandoExcel.value = true
   try {
-    // Asegura datos cargados
     if (!equiposByContrato.value[contrato.id]) await cargarContratoDetalle(contrato.id)
-
     const equiposContrato = equiposByContrato.value[contrato.id] || []
     const oper = operByContrato.value[contrato.id] || []
-
-    // Map rápido: "equipoId-<diaNum>-<A|B>" => "D/F/M"
     const operMap = {}
     for (const o of oper) {
       const fecha = o.fecha?.toDate ? o.fecha.toDate() : new Date(o.fecha)
@@ -1669,28 +1454,21 @@ async function descargarExcelContrato(contrato) {
       const clave = `${o.equipoId}-${dia}-${o.jornada}`
       operMap[clave] = (nombreToLetra(o.estado) || '').toUpperCase()
     }
-
-    const dias   = diasNumericosPorContrato(contrato.id) // ["01","02",...]
+    const dias   = diasNumericosPorContrato(contrato.id)
     const perDay = 2
-
-    // Agrupar equipos por categoría
     const categorias = {}
     for (const eq of equiposContrato) {
       const cat = eq.categoria || 'SIN CATEGORÍA'
       if (!categorias[cat]) categorias[cat] = []
       categorias[cat].push(eq)
     }
-
-    // Workbook
     const wb = XLSX.utils.book_new()
     wb.Workbook = wb.Workbook || {}
     wb.Workbook.CalcPr = { fullCalcOnLoad: true }
 
-    // Cabecera y títulos
     const data = []
     const titulo = `Operatividad — ${contrato.nombre} — ${etiquetaPeriodo.value}`
     data.push([titulo])
-
     const row1 = ['CATEGORÍA', 'N° INTERNO', 'PPU']
     const row2 = ['', '', '']
     dias.forEach((d) => { row1.push(String(parseInt(d, 10))); row1.push(''); row2.push('A','B') })
@@ -1700,14 +1478,11 @@ async function descargarExcelContrato(contrato) {
 
     let currentRow = 3
     const merges = []
-
-    // Cuerpo por categoría
     for (const [categoria, grupoEquipos] of Object.entries(categorias)) {
       const categoriaRow = [categoria]; for (let i = 1; i < row1.length; i++) categoriaRow.push('')
       data.push(categoriaRow)
       merges.push({ s: { r: currentRow, c: 0 }, e: { r: currentRow, c: row1.length - 1 } })
       currentRow++
-
       for (const eq of grupoEquipos) {
         const fila = ['', eq.nombre_equipo || '', eq.patente || '']
         for (const d of dias) {
@@ -1719,12 +1494,8 @@ async function descargarExcelContrato(contrato) {
         currentRow++
       }
     }
-
-    // Sheet
     const ws = XLSX.utils.aoa_to_sheet(data)
     const totalCols = 3 + (dias.length * perDay) + 3
-
-    // Merges: título y días (A/B)
     merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } })
     const mergesDias = dias.map((_, i) => ({
       s: { r: 1, c: 3 + i * perDay },
@@ -1732,51 +1503,20 @@ async function descargarExcelContrato(contrato) {
     }))
     ws['!merges'] = [...merges, ...mergesDias]
 
-    // Estilos
     const BORDER_THIN = { style: 'thin', color: { rgb: 'FF999999' } }
     const allBorders  = { top: BORDER_THIN, right: BORDER_THIN, bottom: BORDER_THIN, left: BORDER_THIN }
-
-    const titleStyle = {
-      font: { bold: true, sz: 16, color: { rgb: 'FFFFFFFF' } },
-      fill: { fgColor: { rgb: 'FF3B3F5C' } },
-      alignment: { vertical: 'center', horizontal: 'center' },
-      border: allBorders
-    }
-    const headerStyle = {
-      font: { bold: true, color: { rgb: 'FFFFFFFF' } },
-      fill: { fgColor: { rgb: 'FF1F4E78' } },
-      alignment: { vertical: 'center', horizontal: 'center', wrapText: true },
-      border: allBorders
-    }
-    const subHeaderStyle = {
-      font: { bold: true, color: { rgb: 'FF1F4E78' } },
-      fill: { fgColor: { rgb: 'FFD9E1F2' } },
-      alignment: { vertical: 'center', horizontal: 'center' },
-      border: allBorders
-    }
-    const categoriaStyle = {
-      font: { bold: true, color: { rgb: 'FF333333' } },
-      fill: { fgColor: { rgb: 'FFF2F2F2' } },
-      alignment: { vertical: 'center', horizontal: 'left' },
-      border: allBorders
-    }
-    const bodyStyle = {
-      alignment: { vertical: 'center', horizontal: 'center' },
-      border: allBorders
-    }
-    const bodyLeftStyle = {
-      alignment: { vertical: 'center', horizontal: 'left' },
-      border: allBorders
-    }
-
+    const titleStyle = { font: { bold: true, sz: 16, color: { rgb: 'FFFFFFFF' } }, fill: { fgColor: { rgb: 'FF3B3F5C' } }, alignment: { vertical: 'center', horizontal: 'center' }, border: allBorders }
+    const headerStyle = { font: { bold: true, color: { rgb: 'FFFFFFFF' } }, fill: { fgColor: { rgb: 'FF1F4E78' } }, alignment: { vertical: 'center', horizontal: 'center', wrapText: true }, border: allBorders }
+    const subHeaderStyle = { font: { bold: true, color: { rgb: 'FF1F4E78' } }, fill: { fgColor: { rgb: 'FFD9E1F2' } }, alignment: { vertical: 'center', horizontal: 'center' }, border: allBorders }
+    const categoriaStyle = { font: { bold: true, color: { rgb: 'FF333333' } }, fill: { fgColor: { rgb: 'FFF2F2F2' } }, alignment: { vertical: 'center', horizontal: 'left' }, border: allBorders }
+    const bodyStyle = { alignment: { vertical: 'center', horizontal: 'center' }, border: allBorders }
+    const bodyLeftStyle = { alignment: { vertical: 'center', horizontal: 'left' }, border: allBorders }
     const styleD = { font: { bold: true, color: { rgb: 'FF0E6027' } }, fill: { fgColor: { rgb: 'FFC6EFCE' } }, alignment: { vertical: 'center', horizontal: 'center' }, border: allBorders }
     const styleF = { font: { bold: true, color: { rgb: 'FF9C0006' } }, fill: { fgColor: { rgb: 'FFFFC7CE' } }, alignment: { vertical: 'center', horizontal: 'center' }, border: allBorders }
     const styleM = { font: { bold: true, color: { rgb: 'FF7F6000' } }, fill: { fgColor: { rgb: 'FFFFEB9C' } }, alignment: { vertical: 'center', horizontal: 'center' }, border: allBorders }
 
     const range = XLSX.utils.decode_range(ws['!ref'])
     const colsCount = range.e.c - range.s.c + 1
-
-    // Aplicar estilos cabeceras
     for (let c = 0; c < colsCount; c++) {
       const ref = XLSX.utils.encode_cell({ r: 0, c })
       ws[ref] = ws[ref] || {}; ws[ref].s = titleStyle
@@ -1787,8 +1527,6 @@ async function descargarExcelContrato(contrato) {
       ws[h1] = ws[h1] || {}; ws[h1].s = headerStyle
       ws[h2] = ws[h2] || {}; ws[h2].s = subHeaderStyle
     }
-
-    // Estilo filas (categoría vs normales)
     for (let r = 3; r <= range.e.r; r++) {
       const c0 = XLSX.utils.encode_cell({ r, c: 0 })
       const isCategoriaRow = ws[c0] && ws[c0].v && (ws[c0].v !== '')
@@ -1798,8 +1536,6 @@ async function descargarExcelContrato(contrato) {
         ws[ref].s = isCategoriaRow ? categoriaStyle : (c <= 2 ? bodyLeftStyle : bodyStyle)
       }
     }
-
-    // Pintar celdas D/F/M
     const estadosStart = 3
     const estadosEnd   = 3 + (dias.length * perDay) - 1
     for (let r = 3; r <= range.e.r; r++) {
@@ -1813,37 +1549,26 @@ async function descargarExcelContrato(contrato) {
         else if (v === 'M') ws[ref].s = styleM
       }
     }
-
-    // Totales D/F y %
     const totalTurnos = dias.length * perDay
     for (let r = 3; r <= range.e.r; r++) {
       const isCategoriaRow = ws[XLSX.utils.encode_cell({ r, c: 0 })]?.v ? true : false
       if (isCategoriaRow) continue
-
       const rangoAB = XLSX.utils.encode_range({ r, c: estadosStart }, { r, c: estadosEnd })
       const colD   = estadosEnd + 1
       const colF   = estadosEnd + 2
       const colPct = estadosEnd + 3
-
       ws[XLSX.utils.encode_cell({ r, c: colD })] = { t: 'n', f: `COUNTIF(${rangoAB},"D")+MIN(2,COUNTIF(${rangoAB},"M"))` }
       ws[XLSX.utils.encode_cell({ r, c: colF })] = { t: 'n', f: `COUNTIF(${rangoAB},"F")+MAX(0,COUNTIF(${rangoAB},"M")-2)` }
       const refD = XLSX.utils.encode_cell({ r, c: colD })
       ws[XLSX.utils.encode_cell({ r, c: colPct })] = { t: 'n', f: `${refD}/${totalTurnos}`, z: '0.00%' }
     }
-
-    // Anchos y autofiltro
     ws['!cols'] = [
       { wch: 22 }, { wch: 18 }, { wch: 14 },
       ...Array.from({ length: dias.length * perDay }, () => ({ wch: 4 })),
       { wch: 14 }, { wch: 12 }, { wch: 10 }
     ]
-    ws['!autofilter'] = {
-      ref: XLSX.utils.encode_range({ s: { r: 2, c: 0 }, e: { r: range.e.r, c: 2 } })
-    }
-
+    ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 2, c: 0 }, e: { r: range.e.r, c: 2 } }) }
     XLSX.utils.book_append_sheet(wb, ws, 'Operatividad')
-
-    // Guardar
     const nombreArchivo = `operatividad_${contrato.nombre.replace(/\s+/g,'_')}_${String(mes.value+1).padStart(2,'0')}-${year.value}.xlsx`
     const buffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
     const blob   = new Blob([buffer], { type: 'application/octet-stream' })
@@ -1851,23 +1576,128 @@ async function descargarExcelContrato(contrato) {
   } catch (e) {
     console.error('Error al generar Excel:', e)
   } finally {
-    // breve pausa para que se vea el overlay
     setTimeout(() => { descargandoExcel.value = false }, 300)
   }
 }
 
-
-/* =======================
-   MONTAJE
-======================= */
+/* ======================= MONTAJE ======================= */
 onMounted(() => {
   const auth = getAuth()
   onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      await obtenerContratosDelUsuario()
-    }
+    if (user) { await obtenerContratosDelUsuario() }
     loading.value = false
   })
+})
+
+/* ======================= SELECCIÓN MÚLTIPLE ======================= */
+const selectionMode = ref(false)
+const selectedCells = ref(new Map()) // key -> { equipoId, jornada, dia, contratoId }
+const applyingBatch = ref(false)
+const batchModal = ref({ visible: false, estado: '', quiereComentario: false, comentario: '' })
+const batchFeedback = ref({ text: '', error: false })
+
+const selectedCellsCount = computed(() => selectedCells.value.size)
+const selectionContratoNombre = computed(() => {
+  const c = contratosUsuario.value.find(x => x.id === expandedContrato.value)
+  return c?.nombre || '—'
+})
+function cellKey(equipoId, jornada, dia){ return `${equipoId}-${jornada}-${dia}` }
+function isSelected(equipoId, jornada, dia){ return selectedCells.value.has(cellKey(equipoId, jornada, dia)) }
+function onCellClickSelect(equipoId, jornada, dia, contratoId){
+  if (!selectionMode.value) return
+  const key = cellKey(equipoId, jornada, dia)
+  const can = puedeEditar(timestampsCelda.value[key])
+  if (rolUsuario.value === 'visualizador' || !can) return
+  if (selectedCells.value.has(key)) selectedCells.value.delete(key)
+  else selectedCells.value.set(key, { equipoId, jornada, dia, contratoId })
+}
+function clearSelection(){ selectedCells.value.clear() }
+function openBatchModal(){
+  if (selectedCellsCount.value === 0) return
+  batchModal.value = { visible: true, estado: '', quiereComentario: false, comentario: '' }
+  batchFeedback.value = { text: '', error: false }
+}
+function closeBatchModal(){
+  batchModal.value.visible = false
+  batchModal.value.estado = ''
+  batchModal.value.quiereComentario = false
+  batchModal.value.comentario = ''
+  batchFeedback.value = { text: '', error: false }
+}
+async function applyBatch(){
+  const estadoLetra = (batchModal.value.estado || '').toUpperCase()
+  if (!['D','F','M'].includes(estadoLetra)) { batchFeedback.value = { text: 'Selecciona un estado (D/F/M).', error: true }; return }
+  if (rolUsuario.value === 'visualizador') { batchFeedback.value = { text: 'No tienes permisos para editar.', error: true }; return }
+
+  applyingBatch.value = true
+  let ok = 0, skipped = 0
+  try {
+    const ops = []
+    for (const [key, meta] of selectedCells.value.entries()){
+      if (!puedeEditar(timestampsCelda.value[key])) { skipped++; continue }
+      const obs = batchModal.value.quiereComentario ? (batchModal.value.comentario || '') : (observacionesCelda.value[key] || '')
+      const letra = estadoLetra
+      const { equipoId, jornada, dia } = meta
+      ops.push(validarYActualizar(equipoId, dia, letra, jornada, obs).then(()=> ok++).catch(()=> skipped++))
+    }
+    await Promise.allSettled(ops)
+    const msg = `Aplicadas ${ok} celdas` + (skipped ? ` · Omitidas ${skipped}` : '')
+    batchFeedback.value = { text: msg, error: false }
+    if (ok > 0) { clearSelection(); closeBatchModal() }
+  } catch (e) {
+    console.error(e)
+    batchFeedback.value = { text: 'Ocurrió un error aplicando los cambios.', error: true }
+  } finally { applyingBatch.value = false }
+}
+async function applyBatchQuick(estadoLetra){
+  batchModal.value.estado = estadoLetra
+  batchModal.value.quiereComentario = false
+  batchModal.value.comentario = ''
+  await applyBatch()
+}
+watch(selectionMode, v => { if (!v) clearSelection() })
+
+/* ===== Arrastre (“pintar” celdas) ===== */
+const isDraggingSelect = ref(false)
+const dragAddMode = ref(true) // true: añade; false: quita (ALT para quitar mientras arrastras)
+
+function addToSelection(equipoId, jornada, dia, contratoId) {
+  const key = cellKey(equipoId, jornada, dia)
+  // Respeta permisos y ventana de edición
+  if (rolUsuario.value === 'visualizador') return
+  if (!puedeEditar(timestampsCelda.value[key])) return
+
+  // Añadir o quitar según dragAddMode
+  if (dragAddMode.value) {
+    if (!selectedCells.value.has(key)) {
+      selectedCells.value.set(key, { equipoId, jornada, dia, contratoId })
+    }
+  } else {
+    if (selectedCells.value.has(key)) {
+      selectedCells.value.delete(key)
+    }
+  }
+}
+
+function onCellMouseDown(equipoId, jornada, dia, contratoId) {
+  if (!selectionMode.value) return
+  // ALT para “borrado” en arrastre; sin ALT añade
+  dragAddMode.value = !(window.event && window.event.altKey)
+  isDraggingSelect.value = true
+  addToSelection(equipoId, jornada, dia, contratoId)
+}
+
+function onCellMouseEnter(equipoId, jornada, dia, contratoId) {
+  if (!selectionMode.value || !isDraggingSelect.value) return
+  addToSelection(equipoId, jornada, dia, contratoId)
+}
+
+function stopDragging() { isDraggingSelect.value = false }
+onMounted(() => {
+  window.addEventListener('mouseup', stopDragging)
+})
+onUnmounted(() => {
+  window.removeEventListener('mouseup', stopDragging)
 })
 </script>
 
@@ -1885,26 +1715,21 @@ onMounted(() => {
 
 /* Nueva columna sticky para DOCS */
 .col-docs { width: 56px; min-width: 56px; text-align: center; }
-
 .sticky-col-3 {
   position: sticky;
   background: #fff;
   z-index: 3;
-  left: calc(160px + 140px); /* = left col-interno (160) + left col-ppu (140) */
+  left: calc(160px + 140px);
   box-shadow: 2px 0 0 rgba(0,0,0,0.06);
 }
-
-/* Asegura que los TH sticky queden por encima del body */
 .table thead th.sticky-col-3 { z-index: 4; }
 
-/* Responsivo: ajusta offsets según los @media existentes */
 @media (max-width: 992px){
   .col-interno { width: 120px; min-width: 120px; }
   .col-ppu     { width: 100px; min-width: 100px; }
   .sticky-col-2 { left: 120px; }
   .sticky-col-3 { left: calc(120px + 100px); }
 }
-
 @media (max-width: 576px){
   .col-interno { width: 100px; min-width: 100px; }
   .col-ppu     { width: 88px;  min-width: 88px;  }
@@ -1912,89 +1737,37 @@ onMounted(() => {
   .sticky-col-3 { left: calc(100px + 88px); }
 }
 
-/* Modal ajuste leve para mejor lectura */
+/* Modal ajuste leve */
 .modal .list-group-item .btn { padding: .25rem .5rem; }
 
 /* ======== Cabecera responsiva por contrato ======== */
-.contrato-row{
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 12px 16px;
-  align-items: center;
-}
-.contrato-row__title{
-  min-width: 0;
-  display: flex;
-  align-items: center;
-}
-.contrato-row__title .emoji{
-  font-size: 1.9rem;
-  line-height: 1;
-}
-/* Truncar y expandir nombre de contrato en hover o tap */
+.contrato-row{ display: grid; grid-template-columns: 1fr auto; gap: 12px 16px; align-items: center; }
+.contrato-row__title{ min-width: 0; display: flex; align-items: center; }
+.contrato-row__title .emoji{ font-size: 1.9rem; line-height: 1; }
 .contrato-row__title .card-title{
-  margin: 0;
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: all .2s ease;
+  margin: 0; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: all .2s ease;
 }
-.contrato-row__title .card-title.nombre-expandido{
-  white-space: normal;
-  overflow: visible;
-  text-overflow: initial;
-}
-
-.contrato-row__actions{
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: max-content;
-  gap: 8px 12px;
-  align-items: center;
-}
-
-.switches{
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.actions-toolbar{
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
+.contrato-row__title .card-title.nombre-expandido{ white-space: normal; overflow: visible; text-overflow: initial; }
+.contrato-row__actions{ display: grid; grid-auto-flow: column; grid-auto-columns: max-content; gap: 8px 12px; align-items: center; }
+.switches{ display: flex; align-items: center; gap: 8px; }
+.actions-toolbar{ display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 @media (max-width: 1200px){
-  .contrato-row{
-    grid-template-columns: 1fr;
-  }
-  .contrato-row__actions{
-    grid-auto-flow: row;
-    grid-auto-rows: max-content;
-  }
+  .contrato-row{ grid-template-columns: 1fr; }
+  .contrato-row__actions{ grid-auto-flow: row; grid-auto-rows: max-content; }
 }
-
 @media (max-width: 768px){
   .switches{ gap: 4px; }
-  .actions-toolbar{
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-  }
+  .actions-toolbar{ flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
   .actions-toolbar > *{ flex: 0 0 auto; }
   .btn{ padding: .42rem .6rem; }
 }
 
-/* ===== Ajustes de tabla en pantallas pequeñas ===== */
+/* ===== Ajustes de tabla ===== */
 @media (max-width: 992px){
   .col-interno { width: 120px; min-width: 120px; }
   .col-ppu     { width: 100px; min-width: 100px; }
   .cell-input{ font-size: .95rem; min-height: 28px; }
-  /* Compensar sticky del 2do col al ancho real de la 1ra */
   .sticky-col-2 { left: 120px; }
 }
 @media (max-width: 576px){
@@ -2004,80 +1777,36 @@ onMounted(() => {
   .sticky-col-2 { left: 100px; }
 }
 
-/* ===== Columnas fijas (sticky) ===== */
-.col-interno,
-.col-ppu {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
+/* Sticky columnas */
+.col-interno, .col-ppu { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .col-interno { width: 160px; min-width: 160px; }
 .col-ppu     { width: 140px; min-width: 140px; }
-
-.sticky-col,
-.sticky-col-2 {
-  position: sticky;
-  background: #fff;
-  z-index: 3;
-}
+.sticky-col, .sticky-col-2 { position: sticky; background: #fff; z-index: 3; }
 .sticky-col   { left: 0;     box-shadow: 2px 0 0 rgba(0,0,0,0.06); }
 .sticky-col-2 { left: 160px; box-shadow: 2px 0 0 rgba(0,0,0,0.06); }
+.table thead th.sticky-col, .table thead th.sticky-col-2 { z-index: 4; }
 
-/* Cabeceras por encima del body */
-.table thead th.sticky-col,
-.table thead th.sticky-col-2 { z-index: 4; }
-
-/* Tarjeta/tabla */
+/* Tabla */
 .card { border-radius: 16px; background-color: #fff; border: 1px solid #dee2e6; }
 .table td, .table th { vertical-align: middle; padding: 0.25rem; }
 .th-turno { font-size: 0.8rem; line-height: 1; }
 
-/* =========================================================
-   LETRAS SIEMPRE VISIBLES
-   ========================================================= */
+/* Letras visibles */
 .cell-letter-visible{
-  position: absolute;
-  inset: 2px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 900;
-  font-size: 1rem;
-  line-height: 1;
-  text-transform: uppercase;
-  letter-spacing: .5px;
-  pointer-events: none;
-  user-select: none;
-  z-index: 2;
-  color: white !important;
+  position: absolute; inset: 2px; display: flex; align-items: center; justify-content: center;
+  font-weight: 900; font-size: 1rem; line-height: 1; text-transform: uppercase;
+  letter-spacing: .5px; pointer-events: none; user-select: none; z-index: 2; color: white !important;
 }
-.accesos-rapidos{
-  display:flex;
-  gap:.5rem;
-  justify-content:flex-start; /* izquierda */
-}
+.accesos-rapidos{ display:flex; gap:.5rem; justify-content:flex-start; }
 
 /* Input */
 .cell-input{
-  min-height: 30px;
-  font-weight: 900;
-  font-size: 1rem;
-  text-transform: uppercase;
-  letter-spacing: .5px;
-  text-align: center;
-  line-height: 1.1;
-  padding-right: 30px;
-  z-index: 1;
-  color: transparent !important;
-  -webkit-text-fill-color: transparent !important;
-  caret-color: #111;
+  min-height: 30px; font-weight: 900; font-size: 1rem; text-transform: uppercase;
+  letter-spacing: .5px; text-align: center; line-height: 1.1; padding-right: 30px; z-index: 1;
+  color: transparent !important; -webkit-text-fill-color: transparent !important; caret-color: #111;
   background-clip: padding-box;
 }
-.cell-input:focus{
-  color: #111 !important;
-  -webkit-text-fill-color: #111 !important;
-}
+.cell-input:focus{ color: #111 !important; -webkit-text-fill-color: #111 !important; }
 
 /* Colores */
 .bg-success.text-white { color: #fff !important; }
@@ -2087,118 +1816,83 @@ onMounted(() => {
 
 /* Botones flotantes */
 .celda-actions{
-  position: absolute;
-  bottom: 2px;
-  right: 45px;
-  display: none;
-  gap: 2px;
-  z-index: 5;
+  position: absolute; bottom: 2px; right: 45px; display: none; gap: 2px; z-index: 5;
 }
 td.position-relative:hover .celda-actions{ display: inline-flex; }
 td.position-relative .btn-xs{
-  padding: 2px 6px; font-size: 0.7rem; line-height: 1;
-  box-shadow: 0 0 0 1px rgba(0,0,0,.05);
+  padding: 2px 6px; font-size: 0.7rem; line-height: 1; box-shadow: 0 0 0 1px rgba(0,0,0,.05);
 }
 
 /* Modo acciones */
 .modo-acciones td.position-relative:hover .celda-actions{ display: none !important; }
 .modo-acciones td.position-relative{ cursor: pointer; }
 
-/* Scrolleo */
+/* Selección múltiple (visual) */
+.cell-selected {
+  outline: 2px solid #0d6efd; outline-offset: -2px; box-shadow: inset 0 0 0 2px rgba(13,110,253,.3);
+  position: relative;
+}
+.cell-selected::after{
+  content: ""; position: absolute; inset: 2px; background: rgba(13,110,253,.08);
+  pointer-events: none; border-radius: 2px;
+}
+
+/* Evitar seleccionar texto y mostrar cursor de pincel al arrastrar */
+.no-select {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  cursor: crosshair;
+}
+
+/* Scrolls */
 .scroll-horizontal { overflow-x: auto; scrollbar-width: thin; scrollbar-color: #aaa transparent; }
 .scroll-horizontal::-webkit-scrollbar { height: 8px; }
 .scroll-horizontal::-webkit-scrollbar-thumb { background: #aaa; border-radius: 4px; }
 .scroll-horizontal::-webkit-scrollbar-thumb:hover { background: #666; }
-
 .scroll-equipos { max-height: 600px; overflow-y: auto; margin-bottom: 1rem; padding-right: 8px; scrollbar-width: thin; scrollbar-color: #bbb transparent; }
 .scroll-equipos::-webkit-scrollbar { width: 8px; }
 .scroll-equipos::-webkit-scrollbar-thumb { background: #bbb; border-radius: 4px; }
 .scroll-equipos::-webkit-scrollbar-thumb:hover { background: #999; }
 
-/* ===== Alerta estilos ===== */
+/* Alerta */
 .alert-danger.shadow-sm h5 { font-weight: 700; }
 .alert-danger .badge.text-bg-light { border-color: #e9ecef; }
 
-/* =======================
-   Animación de la alerta
-   ======================= */
-.alert-pop-enter-from {
-  opacity: 0;
-  transform: translateY(-6px) scale(.98);
-  filter: blur(1px);
-}
-.alert-pop-enter-active {
-  transition: all .35s cubic-bezier(.2,.8,.2,1);
-}
-.alert-pop-enter-to {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-  filter: blur(0);
-}
-.alert-pop-leave-from {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-.alert-pop-leave-active {
-  transition: all .22s ease;
-}
-.alert-pop-leave-to {
-  opacity: 0;
-  transform: translateY(-6px) scale(.98);
-}
+/* Animación alerta */
+.alert-pop-enter-from { opacity: 0; transform: translateY(-6px) scale(.98); filter: blur(1px); }
+.alert-pop-enter-active { transition: all .35s cubic-bezier(.2,.8,.2,1); }
+.alert-pop-enter-to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+.alert-pop-leave-from { opacity: 1; transform: translateY(0) scale(1); }
+.alert-pop-leave-active { transition: all .22s ease; }
+.alert-pop-leave-to { opacity: 0; transform: translateY(-6px) scale(.98); }
 
-/* =======================
-   Zoom de tabla (compacto)
-   ======================= */
-.tabla-zoom-out td,
-.tabla-zoom-out th {
-  font-size: 0.52rem;
-  padding: 0.15rem;
-}
-.tabla-zoom-out .cell-input {
-  font-size: 0.55rem !important;
-  min-height: 22px !important;
-}
-
-/* Ajuste de sticky cuando hay zoom-out en móviles */
+/* Zoom tabla */
+.tabla-zoom-out td, .tabla-zoom-out th { font-size: 0.52rem; padding: 0.15rem; }
+.tabla-zoom-out .cell-input { font-size: 0.55rem !important; min-height: 22px !important; }
 @media (max-width: 576px){
   .tabla-zoom-out .col-interno { width: 60px !important; min-width: 60px !important; }
   .tabla-zoom-out .col-ppu     { width: 60px !important; min-width: 60px !important; }
   .tabla-zoom-out .sticky-col-2 { left: 60px !important; }
 }
-/* Overlay de carga Excel */
+
+/* Overlay Excel */
 .excel-overlay{
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.45);
-  display: grid;
-  place-items: center;     /* centra en ambos ejes */
-  z-index: 2000;           /* más alto por si hay modales */
-  backdrop-filter: blur(1px);
+  position: fixed; inset: 0; background: rgba(0,0,0,.45);
+  display: grid; place-items: center; z-index: 2000; backdrop-filter: blur(1px);
 }
 .excel-box{
-  background: rgba(0,0,0,.25);
-  padding: 22px 28px;
-  border-radius: 14px;
+  background: rgba(0,0,0,.25); padding: 22px 28px; border-radius: 14px;
   box-shadow: 0 6px 24px rgba(0,0,0,.25);
-  display: flex;           /* centra contenido interno */
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-width: 260px;
-  min-height: 160px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-width: 260px; min-height: 160px;
 }
 
-
-
-/* Fade del overlay */
+/* Fade overlay */
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 .fade-enter-active, .fade-leave-active { transition: opacity .2s ease; }
-
 </style>
 
 <script>
-export default {
-  name: 'HomeView'
-}
+export default { name: 'HomeView' }
 </script>

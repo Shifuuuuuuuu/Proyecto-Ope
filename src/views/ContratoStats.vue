@@ -100,18 +100,12 @@
         <div class="card h-100"><div class="card-body">
           <div class="text-muted small">FS programada (%)</div>
           <div class="display-6">{{ fsProgramadaPct }}%</div>
-          <div class="text-muted small">
-            (M en bloques de ≥ 2 días) / (equipos × días considerados × 2)
-          </div>
         </div></div>
       </div>
       <div class="col-12 col-md-3">
         <div class="card h-100"><div class="card-body">
           <div class="text-muted small">FS imprevista (%)</div>
           <div class="display-6">{{ fsImprevistaPct }}%</div>
-          <div class="text-muted small">
-            (F + M fuera de bloques) / (equipos × días considerados × 2)
-          </div>
         </div></div>
       </div>
     </div>
@@ -136,11 +130,6 @@
       <div class="card-header">Disponibilidad diaria (%)</div>
       <div class="card-body">
         <canvas ref="chartLineEl" height="120"></canvas>
-        <div class="small text-muted mt-2">
-          % por día = D(día) / (equipos × 2) × 100.
-          {{ soloHabiles ? '(Fines de semana omitidos)' : '(Incluye fines de semana)' }}.
-          Si no hay registros, se grafica 0.
-        </div>
       </div>
     </div>
 
@@ -248,12 +237,6 @@
             </tbody>
           </table>
         </div>
-        <div class="small text-muted p-3">
-          Requeridos = <code>meta_total</code>. · Mínimo op. = <code>minimo_operativo</code>.<br>
-          <strong>Actual</strong> = <em>promedio diario</em> de equipos con <u>ambos turnos D</u> (día completo) en el mes.<br>
-          Meta disp. (%) = <code>minimo_operativo / meta_total</code> × 100.<br>
-          <strong>Cumpl. vs mínimo</strong> = (Actual / Mínimo op.) × 100. Si ≥100, “OK”; si &lt;100, se muestra el %.
-        </div>
       </div>
     </div>
 
@@ -333,10 +316,6 @@
               </tr>
             </tbody>
           </table>
-        </div>
-        <div class="small text-muted p-3">
-          % por equipo = sobre {{ turnosDelMes }} turnos teóricos
-          ({{ soloHabiles ? 'días hábiles' : 'todos los días' }} × 2).
         </div>
       </div>
     </div>
@@ -439,7 +418,6 @@ const diasConsideradosEnMes = computed(() => {
   const { start, end } = inicioFinMes.value
   return contarDiasSegunContrato(start, end)
 })
-const turnosDelMes = computed(() => diasConsideradosEnMes.value * 2)
 const etiquetaPeriodo = computed(() => `${mesesCorto[filtroMes.value]} ${filtroAnio.value}`)
 const rangoTexto = computed(() => {
   const { start, end } = inicioFinMes.value
