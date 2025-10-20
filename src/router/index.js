@@ -19,7 +19,7 @@ const VerificarCertificado = () => import('@/views/VerificarCertificado.vue')
 const MenuPrincipal = () => import('@/views/MenuPrincipal.vue')
 const RegistroArriendos = () => import('@/views/RegistroArriendos.vue')
 const ReportesFallas = () => import('@/views/ReportesFallas.vue')
-
+const GestorOT = () => import('@/views/GestorOT.vue')
 // Si más adelante conviertes estas a archivos reales, no habrá que tocar el router.
 const ALLOWED_INGRESO_EMAILS = [
   'sectecentral@xtrememining.cl',
@@ -99,6 +99,12 @@ const routes = [
     component: VerificarCertificado
     // pública: sin requiresAuth
   },
+  {
+    path: '/gestor-ot',
+    name: 'GestorOT',
+    component: GestorOT,
+    meta: { requiresAuth: true }
+  }
 
 ]
 

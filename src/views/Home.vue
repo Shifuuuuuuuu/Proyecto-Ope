@@ -46,7 +46,6 @@
                   </li>
                 </ul>
 
-                <!-- Fila sin registros jamás -->
                 <div v-if="contratosNuncaRegistrados.length" class="mt-2">
                   <span class="badge text-bg-secondary">Sin registros previos</span>
                   <span class="small ms-2">
@@ -56,7 +55,6 @@
               </div>
             </div>
 
-            <!-- Acciones -->
             <div class="text-end">
               <button class="btn btn-sm btn-outline-secondary" @click="refrescarAlertaAnimada">
                 <i class="bi bi-arrow-clockwise"></i> Actualizar
@@ -159,9 +157,7 @@
                     </div>
 
                     <div class="actions-toolbar">
-                      <!-- Botón Zoom tabla -->
-                      <button class="btn btn-outline-secondary"
-                              @click="toggleZoomTabla">
+                      <button class="btn btn-outline-secondary" @click="toggleZoomTabla">
                         <i :class="zoomTabla ? 'bi bi-zoom-in' : 'bi bi-zoom-out'"></i>
                       </button>
 
@@ -257,7 +253,7 @@
                         </div>
 
                         <div class="card-body p-0">
-                          <div class="scroll-horizontal no-select">
+                          <div class="scroll-horizontal">
                             <table
                               class="table table-bordered table-sm text-center align-middle mb-0"
                               :class="[tablaClaseModo, { 'tabla-zoom-out': zoomTabla }]"
@@ -299,10 +295,15 @@
                                     <!-- A -->
                                     <td class="position-relative p-1"
                                         :class="{ 'cell-selected': isSelected(equipo.id, 'A', dia) }"
-                                        @mousedown.prevent.stop="onCellMouseDown(equipo.id, 'A', dia, contrato.id)"
+                                        :data-eid="equipo.id"
+                                        data-turno="A"
+                                        :data-dia="dia"
+                                        @mousedown="handleCellMouseDown($event, equipo.id, 'A', dia, contrato.id)"
                                         @mouseenter="onCellMouseEnter(equipo.id, 'A', dia, contrato.id)"
-                                        @click="selectionMode ? onCellClickSelect(equipo.id, 'A', dia, contrato.id) : (modoAcciones && abrirHistorial(equipo.id, 'A', dia))"
-                                        @dblclick="!selectionMode && modoAcciones && abrirComentario(equipo.id, 'A', dia)">
+                                        @touchstart="handleCellTouchStart($event, equipo.id, 'A', dia, contrato.id)"
+                                        @touchmove="onCellTouchMove($event)"
+                                        @touchend="onCellTouchEnd"
+                                        @click="onCellClick(equipo.id, 'A', dia, contrato.id, categoria, rowIndex, diaIndex)">
                                       <span class="cell-letter-visible">
                                         {{ getValorCelda(`${equipo.id}-A-${dia}`) }}
                                       </span>
@@ -331,10 +332,15 @@
                                     <!-- B -->
                                     <td class="position-relative p-1"
                                         :class="{ 'cell-selected': isSelected(equipo.id, 'B', dia) }"
-                                        @mousedown.prevent.stop="onCellMouseDown(equipo.id, 'B', dia, contrato.id)"
+                                        :data-eid="equipo.id"
+                                        data-turno="B"
+                                        :data-dia="dia"
+                                        @mousedown="handleCellMouseDown($event, equipo.id, 'B', dia, contrato.id)"
                                         @mouseenter="onCellMouseEnter(equipo.id, 'B', dia, contrato.id)"
-                                        @click="selectionMode ? onCellClickSelect(equipo.id, 'B', dia, contrato.id) : (modoAcciones && abrirHistorial(equipo.id, 'B', dia))"
-                                        @dblclick="!selectionMode && modoAcciones && abrirComentario(equipo.id, 'B', dia)">
+                                        @touchstart="handleCellTouchStart($event, equipo.id, 'B', dia, contrato.id)"
+                                        @touchmove="onCellTouchMove($event)"
+                                        @touchend="onCellTouchEnd"
+                                        @click="onCellClick(equipo.id, 'B', dia, contrato.id, categoria, rowIndex, diaIndex)">
                                       <span class="cell-letter-visible">
                                         {{ getValorCelda(`${equipo.id}-B-${dia}`) }}
                                       </span>
@@ -454,7 +460,6 @@
                 </div>
 
                 <div class="modal-body">
-                  <!-- Barra de acciones -->
                   <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
                     <input
                       ref="fileInputRef"
@@ -472,7 +477,6 @@
                     </div>
                   </div>
 
-                  <!-- Listado -->
                   <div v-if="cargandoDocs" class="text-center py-3">
                     <div class="spinner-border text-secondary"></div>
                   </div>
@@ -971,7 +975,7 @@ function isWeekdaysOnlyContratoId(contratoId) {
 function diasPorContrato(contratoId) { return isWeekdaysOnlyContratoId(contratoId) ? diasHabilesDelMes.value : diasDelMes.value }
 function diasNumericosPorContrato(contratoId) { return diasPorContrato(contratoId).map(s => s.slice(0,2)) }
 
-/* ====== Entrada/navegación ====== */
+/* ====== Entrada/navegación individual ====== */
 function onCellKeydown(e, contratoId, categoria, rowIdx, diaIdx, turno, totalRows, totalDias) {
   if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); focusCell(contratoId, categoria, rowIdx, diaIdx, turno); return }
   const k = e.key
@@ -1301,7 +1305,7 @@ async function abrirHistorial(equipoId, jornada, dia) {
   } finally { cargandoHistorial.value = false }
 }
 
-/* ======================= COMENTARIO DIFERIDO (celda individual) ======================= */
+/* ======================= COMENTARIO INDIVIDUAL ======================= */
 const comentarioVisible = ref(false)
 const comentarioTexto = ref('')
 const comentarioMeta = ref({ equipoId: '', jornada: '', dia: '' })
@@ -1603,13 +1607,17 @@ const selectionContratoNombre = computed(() => {
 })
 function cellKey(equipoId, jornada, dia){ return `${equipoId}-${jornada}-${dia}` }
 function isSelected(equipoId, jornada, dia){ return selectedCells.value.has(cellKey(equipoId, jornada, dia)) }
-function onCellClickSelect(equipoId, jornada, dia, contratoId){
-  if (!selectionMode.value) return
+function addToSelection(equipoId, jornada, dia, contratoId) {
+  if (rolUsuario.value === 'visualizador') return
   const key = cellKey(equipoId, jornada, dia)
-  const can = puedeEditar(timestampsCelda.value[key])
-  if (rolUsuario.value === 'visualizador' || !can) return
+  if (!puedeEditar(timestampsCelda.value[key])) return
+  if (dragAddMode.value) selectedCells.value.set(key, { equipoId, jornada, dia, contratoId })
+  else selectedCells.value.delete(key)
+}
+function onCellClickSelect(equipoId, jornada, dia, contratoId){
+  const key = cellKey(equipoId, jornada, dia)
   if (selectedCells.value.has(key)) selectedCells.value.delete(key)
-  else selectedCells.value.set(key, { equipoId, jornada, dia, contratoId })
+  else addToSelection(equipoId, jornada, dia, contratoId)
 }
 function clearSelection(){ selectedCells.value.clear() }
 function openBatchModal(){
@@ -1657,47 +1665,127 @@ async function applyBatchQuick(estadoLetra){
 }
 watch(selectionMode, v => { if (!v) clearSelection() })
 
-/* ===== Arrastre (“pintar” celdas) ===== */
+/* ===== Arrastre con mouse (“pincel”) ===== */
 const isDraggingSelect = ref(false)
-const dragAddMode = ref(true) // true: añade; false: quita (ALT para quitar mientras arrastras)
-
-function addToSelection(equipoId, jornada, dia, contratoId) {
-  const key = cellKey(equipoId, jornada, dia)
-  // Respeta permisos y ventana de edición
+const dragAddMode = ref(true) // true: agrega, false: quita
+function handleCellMouseDown(evt, equipoId, jornada, dia, contratoId){
+  if (!selectionMode.value) return // NO bloquear foco del input
+  evt.preventDefault()
+  evt.stopPropagation()
   if (rolUsuario.value === 'visualizador') return
-  if (!puedeEditar(timestampsCelda.value[key])) return
-
-  // Añadir o quitar según dragAddMode
-  if (dragAddMode.value) {
-    if (!selectedCells.value.has(key)) {
-      selectedCells.value.set(key, { equipoId, jornada, dia, contratoId })
-    }
-  } else {
-    if (selectedCells.value.has(key)) {
-      selectedCells.value.delete(key)
-    }
-  }
-}
-
-function onCellMouseDown(equipoId, jornada, dia, contratoId) {
-  if (!selectionMode.value) return
-  // ALT para “borrado” en arrastre; sin ALT añade
-  dragAddMode.value = !(window.event && window.event.altKey)
   isDraggingSelect.value = true
+  dragAddMode.value = !evt.altKey
   addToSelection(equipoId, jornada, dia, contratoId)
 }
-
-function onCellMouseEnter(equipoId, jornada, dia, contratoId) {
-  if (!selectionMode.value || !isDraggingSelect.value) return
+function onCellMouseEnter(equipoId, jornada, dia, contratoId){
+  if (!isDraggingSelect.value) return
   addToSelection(equipoId, jornada, dia, contratoId)
 }
-
-function stopDragging() { isDraggingSelect.value = false }
+function onMouseUpGlobal(){
+  isDraggingSelect.value = false
+}
+function onKeyDownGlobal(e){
+  // Permite alternar modo durante el arrastre con ALT
+  if (e.key === 'Alt') dragAddMode.value = false
+}
+function onKeyUpGlobal(e){
+  if (e.key === 'Alt') dragAddMode.value = true
+}
 onMounted(() => {
-  window.addEventListener('mouseup', stopDragging)
+  window.addEventListener('mouseup', onMouseUpGlobal)
+  window.addEventListener('keydown', onKeyDownGlobal)
+  window.addEventListener('keyup', onKeyUpGlobal)
 })
 onUnmounted(() => {
-  window.removeEventListener('mouseup', stopDragging)
+  window.removeEventListener('mouseup', onMouseUpGlobal)
+  window.removeEventListener('keydown', onKeyDownGlobal)
+  window.removeEventListener('keyup', onKeyUpGlobal)
+})
+
+/* === Clic tradicional en la celda === */
+function onCellClick(equipoId, jornada, dia, contratoId, categoria, rowIndex, diaIndex){
+  if (selectionMode.value) {
+    onCellClickSelect(equipoId, jornada, dia, contratoId)
+    return
+  }
+  if (modoAcciones.value) {
+    abrirHistorial(equipoId, jornada, dia)
+    return
+  }
+  // Foco al input (comportamiento tradicional)
+  focusCell(contratoId, categoria, rowIndex, diaIndex, jornada)
+}
+
+/* === Arrastre táctil (mobile) === */
+const touchDragging = ref(false)
+const touchLongPress = ref(false)
+let touchLongPressTimer = null
+
+function startTouchBrush() {
+  if (!selectionMode.value) return
+  if (rolUsuario.value === 'visualizador') return
+  isDraggingSelect.value = true
+  touchDragging.value = true
+  dragAddMode.value = true // en móvil, por defecto agregar
+}
+function clearTouchTimers() {
+  if (touchLongPressTimer) {
+    clearTimeout(touchLongPressTimer)
+    touchLongPressTimer = null
+  }
+}
+function handleCellTouchStart(e, equipoId, jornada, dia, contratoId) {
+  if (!selectionMode.value) return // NO bloquear scroll/foco si no estamos seleccionando
+  e.preventDefault()
+  e.stopPropagation()
+  touchLongPress.value = false
+  clearTouchTimers()
+  touchLongPressTimer = setTimeout(() => {
+    touchLongPress.value = true
+    startTouchBrush()
+    addToSelection(equipoId, jornada, dia, contratoId)
+  }, 300)
+}
+function elementCellMetaFromPoint(x, y) {
+  const el = document.elementFromPoint(x, y)
+  if (!el) return null
+  const td = el.closest?.('td.position-relative[data-eid]')
+  if (!td) return null
+  const equipoId = td.getAttribute('data-eid')
+  const jornada  = td.getAttribute('data-turno')
+  const dia      = td.getAttribute('data-dia')
+  const contratoId = expandedContrato.value
+  return { equipoId, jornada, dia, contratoId }
+}
+function onCellTouchMove(e) {
+  if (!selectionMode.value) return
+  if (!touchDragging.value) return
+  const t = e.changedTouches?.[0]
+  if (!t) return
+  const meta = elementCellMetaFromPoint(t.clientX, t.clientY)
+  if (!meta) return
+  addToSelection(meta.equipoId, meta.jornada, meta.dia, meta.contratoId)
+}
+function onCellTouchEnd(e) {
+  clearTouchTimers()
+  if (!selectionMode.value) return
+  const t = e.changedTouches?.[0]
+  if (t) {
+    const meta = elementCellMetaFromPoint(t.clientX, t.clientY)
+    if (meta && !touchLongPress.value) {
+      onCellClickSelect(meta.equipoId, meta.jornada, meta.dia, meta.contratoId)
+    }
+  }
+  isDraggingSelect.value = false
+  touchDragging.value = false
+  touchLongPress.value = false
+}
+onMounted(() => {
+  window.addEventListener('touchend', onCellTouchEnd, { passive: false })
+})
+onUnmounted(() => {
+  window.removeEventListener('touchend', onCellTouchEnd)
+  clearTouchTimers()
 })
 </script>
 
@@ -1827,7 +1915,7 @@ td.position-relative .btn-xs{
 .modo-acciones td.position-relative:hover .celda-actions{ display: none !important; }
 .modo-acciones td.position-relative{ cursor: pointer; }
 
-/* Selección múltiple (visual) */
+/* Selección múltiple */
 .cell-selected {
   outline: 2px solid #0d6efd; outline-offset: -2px; box-shadow: inset 0 0 0 2px rgba(13,110,253,.3);
   position: relative;
@@ -1835,14 +1923,6 @@ td.position-relative .btn-xs{
 .cell-selected::after{
   content: ""; position: absolute; inset: 2px; background: rgba(13,110,253,.08);
   pointer-events: none; border-radius: 2px;
-}
-
-/* Evitar seleccionar texto y mostrar cursor de pincel al arrastrar */
-.no-select {
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  user-select: none;
-  cursor: crosshair;
 }
 
 /* Scrolls */
@@ -1857,7 +1937,7 @@ td.position-relative .btn-xs{
 
 /* Alerta */
 .alert-danger.shadow-sm h5 { font-weight: 700; }
-.alert-danger .badge.text-bg-light { border-color: #e9ecef; }
+.alert-danger .badge text-bg-light { border-color: #e9ecef; }
 
 /* Animación alerta */
 .alert-pop-enter-from { opacity: 0; transform: translateY(-6px) scale(.98); filter: blur(1px); }
