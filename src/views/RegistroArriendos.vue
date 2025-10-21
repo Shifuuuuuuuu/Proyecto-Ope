@@ -627,25 +627,54 @@ const isVisualizador = computed(() =>
 async function cargarContratosAsignados(uid) {
   cargando.contratos = true
   try {
-    const snap = await getDocFromServer(doc(db, 'usuarios', uid))
-    if (!snap.exists()) return
-    perfilUsuario.value = snap.data()
-    const ids = perfilUsuario.value.contratosAsignados || []
+    const snapUser = await getDocFromServer(doc(db, 'usuarios', uid))
+    if (!snapUser.exists()) { contratosUsuario.value = []; return }
+
+    perfilUsuario.value = snapUser.data()
+    const ids = (perfilUsuario.value.contratosAsignados || []).filter(Boolean)
     if (!ids.length) { contratosUsuario.value = []; return }
 
-    const qs = await getDocs(collection(db, 'contratos'))
-    contratosUsuario.value = qs.docs
-      .map(d => ({ id: d.id, ...(d.data()) }))
-      .filter(c => ids.includes(c.id))
-      .map(c => ({ id: c.id, nombre: c.nombre || c.id }))
-      .sort((a,b) => String(a.nombre).localeCompare(String(b.nombre), 'es', { sensitivity:'base' }))
+    const activos = []
+    // Firestore permite hasta 10 ids en "in"
+    for (let i = 0; i < ids.length; i += 10) {
+      const slice = ids.slice(i, i + 10)
+      const qs = await getDocs(
+        query(collection(db, 'contratos'), where('__name__', 'in', slice))
+      )
+      qs.docs.forEach(d => {
+        const data = d.data() || {}
+        // Solo activos: (si no existe el flag, lo consideramos activo)
+        const isActivo = data.activo !== false
+        if (isActivo) {
+          activos.push({
+            id: d.id,
+            nombre: data.nombre || d.id
+          })
+        }
+      })
+    }
 
+    // Orden alfabético y seteo en el select
+    contratosUsuario.value = activos.sort((a, b) =>
+      String(a.nombre).localeCompare(String(b.nombre), 'es', { sensitivity: 'base' })
+    )
+
+    // Si quedó un único contrato activo, autoselecciona
     if (contratosUsuario.value.length === 1) {
       form.contratoId = contratosUsuario.value[0].id
       await onChangeContrato()
+    } else {
+      // Si el seleccionado actual ya no está activo, límpialo
+      if (form.contratoId && !contratosUsuario.value.some(c => c.id === form.contratoId)) {
+        form.contratoId = ''
+        arriendos.value = []
+      }
     }
-  } finally { cargando.contratos = false }
+  } finally {
+    cargando.contratos = false
+  }
 }
+
 
 // ====================== CAMBIO DE CONTRATO ======================
 async function onChangeContrato() {

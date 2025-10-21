@@ -49,7 +49,7 @@
 
       <select v-model="nuevoContratoId" class="form-select" style="max-width: 320px;">
         <option disabled value="">Mover a contrato…</option>
-        <option v-for="c in contratos" :key="c.id" :value="c.id">{{ c.nombre }}</option>
+        <option v-for="c in contratosActivos" :key="c.id" :value="c.id">{{ c.nombre }}</option>
       </select>
 
       <button class="btn btn-primary" :disabled="!nuevoContratoId" @click="aplicarCambioContratoMasivo">
@@ -90,7 +90,7 @@
               <label class="form-label">Contrato</label>
               <select v-model="equipoActual.contratoId" class="form-select" required>
                 <option disabled value="">Selecciona un contrato</option>
-                <option v-for="c in contratosFiltrados" :key="c.id" :value="c.id">{{ c.nombre }}</option>
+                <option v-for="c in contratosActivos" :key="c.id" :value="c.id">{{ c.nombre }}</option>
               </select>
             </div>
           </div>
@@ -268,13 +268,27 @@ const obtenerUsuarioActual = () =>
       resolve();
     });
   });
+const contratosActivos = computed(() => (contratos.value || []).filter(c => c.activo !== false));
 
 const cargarContratosAsignados = async () => {
   const prom = contratosAsignados.value.map(id => getDoc(doc(db, 'contratos', id)));
   const snaps = await Promise.all(prom);
-  contratos.value = snaps.filter(s => s.exists()).map(s => ({ id: s.id, ...s.data() }));
+
+  // Normaliza y guarda
+  const todos = snaps
+    .filter(s => s.exists())
+    .map(s => {
+      const data = s.data() || {};
+      return { id: s.id, ...data, activo: data.activo !== false }; // undefined => activo
+    });
+
+  // SOLO activos
+  contratos.value = todos.filter(c => c.activo);
+
+  // (re)inicia estados de UI solo para activos
   contratos.value.forEach(c => ensureContratoState(c.id));
 };
+
 
 // Query base (paginada) por contrato con filtros server-side
 const buildEquiposQuery = (contratoId, pageSize = 12, last = null) => {
@@ -423,6 +437,11 @@ const aplicarCambioContratoMasivo = async () => {
 
   try {
     const destino = nuevoContratoId.value;
+    const destinoActivo = contratosActivos.value.some(c => c.id === destino);
+    if (!destinoActivo) {
+      alert('El contrato de destino está inactivo. Elige un contrato activo.');
+      return;
+    }
 
     // Preparar lista real de equipos (construye payload desde el cache; si falta alguno, lo traeremos por contrato)
     // Agrupamos por contrato de origen para refrescar después
@@ -468,7 +487,8 @@ const aplicarCambioContratoMasivo = async () => {
 };
 
 // ---------- COMPUTEDS ----------
-const contratosFiltrados = computed(() => contratos.value);
+const contratosFiltrados = contratosActivos; // mantener nombre usado abajo
+
 
 const aniosDisponibles = computed(() => {
   const set = new Set();

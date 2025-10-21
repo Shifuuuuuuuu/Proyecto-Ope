@@ -172,7 +172,7 @@
               <div class="mb-3">
                 <label>Contrato(s)</label>
                 <select v-model="nuevoUsuario.contratosAsignados" class="form-select" multiple>
-                  <option v-for="c in contratos" :key="c.id" :value="c.id">{{ c.nombre }}</option>
+                  <option v-for="c in contratosActivos" :key="c.id" :value="c.id">{{ c.nombre }}</option>
                 </select>
                 <small class="text-muted">Mantén Ctrl (o Cmd) para seleccionar varios</small>
               </div>
@@ -204,22 +204,29 @@
 
             <template v-else-if="contratos.length > 0">
               <ul class="list-group list-group-flush">
-                <li
-                  v-for="c in contratos"
-                  :key="c.id"
-                  class="list-group-item py-2 px-3 d-flex justify-content-between align-items-start flex-column flex-sm-row"
-                  style="font-size: 0.9rem;"
-                >
-                  <div>
-                    <strong>ID: {{ c.id }}</strong><br />
-                    {{ c.nombre }}<br />
-                    <small class="text-muted">Creado: {{ formatoFecha(c.fecha_creacion) }}</small>
-                  </div>
-                  <div class="mt-2 mt-sm-0 d-flex gap-1">
-                    <button @click="editarContrato(c)" class="btn btn-sm btn-outline-primary">✏️</button>
-                    <button @click="confirmEliminarContrato(c.id)" class="btn btn-sm btn-outline-danger">🗑️</button>
-                  </div>
-                </li>
+              <li
+                v-for="c in contratos"
+                :key="c.id"
+                class="list-group-item py-2 px-3 d-flex justify-content-between align-items-start flex-column flex-sm-row"
+                style="font-size: 0.9rem;"
+              >
+                <div>
+                  <strong>ID: {{ c.id }}</strong>
+                  <span class="badge ms-2" :class="c.activo ? 'text-bg-success' : 'text-bg-secondary'">
+                    {{ c.activo ? 'Activo' : 'Inactivo' }}
+                  </span>
+                  <br />
+                  {{ c.nombre }}<br />
+                  <small class="text-muted">Creado: {{ formatoFecha(c.fecha_creacion) }}</small>
+                </div>
+                <div class="mt-2 mt-sm-0 d-flex gap-1">
+                  <button @click="editarContrato(c)" class="btn btn-sm btn-outline-primary">✏️</button>
+                  <button @click="toggleActivoContrato(c)" class="btn btn-sm btn-outline-secondary">
+                    {{ c.activo ? 'Desactivar' : 'Activar' }}
+                  </button>
+                  <button @click="confirmEliminarContrato(c.id)" class="btn btn-sm btn-outline-danger">🗑️</button>
+                </div>
+              </li>
               </ul>
             </template>
             <div v-else class="text-center text-muted">No hay contratos registrados.</div>
@@ -233,16 +240,25 @@
           </div>
           <div class="card-body p-3">
             <form @submit.prevent="modoEdicionContrato ? actualizarContrato() : agregarContrato()">
-              <div class="mb-3">
-                <label>Nombre del contrato</label>
-                <input v-model="nuevoContrato.nombre" class="form-control" list="nombresContratos" required />
-                <datalist id="nombresContratos">
-                  <option v-for="c in contratos" :key="c.id" :value="c.nombre" />
-                </datalist>
-              </div>
-              <button type="submit" class="btn btn-success w-100 btn-w-xs" :disabled="loadingContratosBtn">
-                {{ loadingContratosBtn ? 'Guardando...' : modoEdicionContrato ? 'Actualizar Contrato' : 'Agregar Contrato' }}
-              </button>
+            <div class="mb-3">
+              <label>Nombre del contrato</label>
+              <input v-model="nuevoContrato.nombre" class="form-control" list="nombresContratos" required />
+              <datalist id="nombresContratos">
+                <option v-for="c in contratos" :key="c.id" :value="c.nombre" />
+              </datalist>
+            </div>
+
+            <!-- NUEVO: switch activo/inactivo -->
+            <div class="form-check form-switch mb-3">
+              <input class="form-check-input" type="checkbox" id="swContratoActivo" v-model="nuevoContrato.activo">
+              <label class="form-check-label" for="swContratoActivo">
+                Contrato activo
+              </label>
+            </div>
+
+            <button type="submit" class="btn btn-success w-100 btn-w-xs" :disabled="loadingContratosBtn">
+              {{ loadingContratosBtn ? 'Guardando...' : modoEdicionContrato ? 'Actualizar Contrato' : 'Agregar Contrato' }}
+            </button>
               <button
                 v-if="modoEdicionContrato"
                 type="button"
@@ -628,6 +644,14 @@ import * as XLSX from 'xlsx'
 const router = useRouter()
 const volver = () => router.back()
 
+const contratosActivos = computed(() =>
+  (contratos.value || []).filter(c => c.activo !== false)
+)
+function sanitizeContratosSeleccionados(ids = []) {
+  const activos = new Set(contratosActivos.value.map(c => c.id))
+  return (ids || []).filter(id => activos.has(id))
+}
+
 /** ------------- TOASTS ------------- **/
 const toasts = ref([]); let toastId = 0
 function toastOk(msg){ toasts.value.push({ id: ++toastId, msg, variant: 'success' }); autoHide(toastId) }
@@ -794,7 +818,7 @@ async function agregarUsuario() {
       nombre_completo: nuevoUsuario.value.nombre_completo.trim(),
       email: nuevoUsuario.value.email.trim().toLowerCase(),
       rol: nuevoUsuario.value.rol,
-      contratosAsignados: nuevoUsuario.value.contratosAsignados || [],
+      contratosAsignados: sanitizeContratosSeleccionados(nuevoUsuario.value.contratosAsignados),
       telefono: nuevoUsuario.value.telefono
     }
     toUpperSafe(payload, ['nombre_completo'])
@@ -812,15 +836,23 @@ async function agregarUsuario() {
 function editarUsuario(usuario) {
   modoEdicionUsuario.value = true
   usuarioEditId.value = usuario.id
+
+  const originales = usuario.contratosAsignados || []
+  const filtrados = sanitizeContratosSeleccionados(originales)
+  if (originales.length && filtrados.length !== originales.length) {
+    toastErr('Se ocultaron contratos inactivos en la selección de este usuario.')
+  }
+
   nuevoUsuario.value = {
     nombre_completo: usuario.nombre_completo,
     email: usuario.email,
     password: '',
     rol: usuario.rol,
-    contratosAsignados: usuario.contratosAsignados || [],
+    contratosAsignados: filtrados,
     telefono: usuario.telefono || ''
   }
 }
+
 
 async function actualizarUsuario() {
   loadingUsuariosBtn.value = true
@@ -828,7 +860,7 @@ async function actualizarUsuario() {
     const payload = {
       nombre_completo: nuevoUsuario.value.nombre_completo,
       rol: nuevoUsuario.value.rol,
-      contratosAsignados: nuevoUsuario.value.contratosAsignados,
+      contratosAsignados: sanitizeContratosSeleccionados(nuevoUsuario.value.contratosAsignados),
       telefono: nuevoUsuario.value.telefono
     }
     toUpperSafe(payload, ['nombre_completo'])
@@ -879,19 +911,28 @@ function cancelarEdicionUsuario(){
 /** ------------- CRUD Contratos ------------- **/
 const modoEdicionContrato = ref(false)
 const contratoEditId = ref(null)
-const nuevoContrato = ref({ nombre: '' })
+const nuevoContrato = ref({ nombre: '', activo: true })
 
 async function obtenerContratos() {
   loadingContratos.value = true
   try {
     const snap = await getDocs(collection(db, 'contratos'))
-    contratos.value = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    contratos.value = snap.docs.map(d => {
+      const data = d.data() || {}
+      return {
+        id: d.id,
+        ...data,
+        // fallback: si no existe el campo, considerarlo activo
+        activo: data.activo !== false
+      }
+    })
   } catch (err) {
     toastErr('Error al obtener contratos: ' + err.message)
   } finally {
     loadingContratos.value = false
   }
 }
+
 
 async function agregarContrato() {
   loadingContratosBtn.value = true
@@ -900,10 +941,11 @@ async function agregarContrato() {
     const payload = {
       id: nuevoId,
       nombre: String(nuevoContrato.value.nombre || '').toUpperCase(),
+      activo: nuevoContrato.value.activo !== false,
       fecha_creacion: new Date()
     }
     await setDoc(doc(db, 'contratos', nuevoId), payload)
-    nuevoContrato.value = { nombre: '' }
+    nuevoContrato.value = { nombre: '', activo: true }
     await obtenerContratos()
     toastOk('Contrato agregado')
   } catch (err) {
@@ -913,21 +955,23 @@ async function agregarContrato() {
   }
 }
 
+
 function editarContrato(contrato) {
   modoEdicionContrato.value = true
   contratoEditId.value = contrato.id
-  nuevoContrato.value = { nombre: contrato.nombre }
+  nuevoContrato.value = { nombre: contrato.nombre, activo: contrato.activo !== false }
 }
 
 async function actualizarContrato() {
   loadingContratosBtn.value = true
   try {
     await updateDoc(doc(db, 'contratos', contratoEditId.value), {
-      nombre: String(nuevoContrato.value.nombre || '').toUpperCase()
+      nombre: String(nuevoContrato.value.nombre || '').toUpperCase(),
+      activo: nuevoContrato.value.activo !== false
     })
     modoEdicionContrato.value = false
     contratoEditId.value = null
-    nuevoContrato.value = { nombre: '' }
+    nuevoContrato.value = { nombre: '', activo: true }
     await obtenerContratos()
     toastOk('Contrato actualizado')
   } catch (err) {
@@ -962,7 +1006,17 @@ async function confirmEliminarContrato(id){
 function cancelarEdicionContrato(){
   modoEdicionContrato.value = false
   contratoEditId.value = null
-  nuevoContrato.value = { nombre: '' }
+  nuevoContrato.value = { nombre: '', activo: true }
+}
+async function toggleActivoContrato(c){
+  try {
+    const nuevo = !c.activo
+    await updateDoc(doc(db, 'contratos', c.id), { activo: nuevo })
+    c.activo = nuevo
+    toastOk(nuevo ? 'Contrato activado' : 'Contrato desactivado')
+  } catch (err) {
+    toastErr('No se pudo cambiar estado: ' + err.message)
+  }
 }
 
 /** ------------- Categorías ------------- **/

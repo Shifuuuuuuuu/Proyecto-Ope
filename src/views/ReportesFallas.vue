@@ -477,28 +477,47 @@ const isVisualizador = computed(() =>
 async function cargarContratosAsignados(uid) {
   cargando.contratos = true
   try {
-    const snap = await getDocFromServer(doc(db, 'usuarios', uid))
-    if (!snap.exists()) return
-    perfilUsuario.value = snap.data()
+    const snapUser = await getDocFromServer(doc(db, 'usuarios', uid))
+    if (!snapUser.exists()) { contratosUsuario.value = []; return }
 
-    const ids = perfilUsuario.value.contratosAsignados || []
+    perfilUsuario.value = snapUser.data()
+    const ids = (perfilUsuario.value.contratosAsignados || []).filter(Boolean)
     if (!ids.length) { contratosUsuario.value = []; return }
 
-    const qs = await getDocs(collection(db, 'contratos'))
-    contratosUsuario.value = qs.docs
-      .map(d => ({ id: d.id, ...(d.data()) }))
-      .filter(c => ids.includes(c.id))
-      .map(c => ({ id: c.id, nombre: c.nombre || c.id }))
-      .sort((a,b) => String(a.nombre).localeCompare(String(b.nombre), 'es', { sensitivity:'base' }))
+    const activos = []
+    for (let i = 0; i < ids.length; i += 10) {
+      const slice = ids.slice(i, i + 10)
+      const qs = await getDocs(
+        query(collection(db, 'contratos'), where('__name__', 'in', slice))
+      )
+      qs.docs.forEach(d => {
+        const data = d.data() || {}
+        // Mostrar solo activos (si no existe el flag, se asume activo)
+        const isActivo = data.activo !== false
+        if (isActivo) activos.push({ id: d.id, nombre: data.nombre || d.id })
+      })
+    }
 
+    contratosUsuario.value = activos.sort((a, b) =>
+      String(a.nombre).localeCompare(String(b.nombre), 'es', { sensitivity: 'base' })
+    )
+
+    // Autoselecciona si solo queda uno; si el actual ya no está, limpia selección
     if (contratosUsuario.value.length === 1) {
       form.contratoId = contratosUsuario.value[0].id
       await onChangeContrato()
+    } else {
+      if (form.contratoId && !contratosUsuario.value.some(c => c.id === form.contratoId)) {
+        form.contratoId = ''
+        fallas.value = []
+        equiposContrato.value = []
+      }
     }
   } finally {
     cargando.contratos = false
   }
 }
+
 
 /* ========== CAMBIO DE CONTRATO ========== */
 async function onChangeContrato() {

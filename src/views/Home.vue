@@ -130,12 +130,22 @@
                       @mouseenter="hoverContratoId = contrato.id"
                       @mouseleave="hoverContratoId = null"
                       @click="toggleNombreExpand(contrato.id)"
-                      :class="{'nombre-expandido': nombreExpandidoId === contrato.id || hoverContratoId === contrato.id}"
+                      :class="{
+                        'nombre-expandido': nombreExpandidoId === contrato.id || hoverContratoId === contrato.id
+                      }"
                     >
                       {{ contrato.nombre }}
                     </h4>
-                  </div>
 
+                    <!-- NUEVO: badge estado -->
+                    <span
+                      class="badge ms-2"
+                      :class="contrato.activo !== false ? 'text-bg-success' : 'text-bg-secondary'"
+                      title="Estado del contrato"
+                    >
+                      {{ contrato.activo !== false ? 'Activo' : 'Inactivo' }}
+                    </span>
+                  </div>
                   <!-- Acciones -->
                   <div class="contrato-row__actions">
                     <div class="switches">
@@ -1004,7 +1014,9 @@ function onCellInput(e, clave, dia, jornada, contratoId, categoria, rowIdx, diaI
 }
 
 /* ======================= UTILIDADES ======================= */
-const contratosUsuarioValidos = computed(() => contratosUsuario.value.filter(c => c && c.id))
+const contratosUsuarioValidos = computed(() =>
+  (contratosUsuario.value || []).filter(c => c && c.id && c.activo !== false)
+)
 const emojiContrato = (nombreContrato) => {
   const nombre = (nombreContrato || '').toLowerCase()
   if (nombre.includes('urbanos olivar') || nombre.includes('san bernardo')) return '🏙️'
@@ -1080,19 +1092,23 @@ function humanizeDiff(fecha) {
   const dias = Math.floor(horas / 24)
   return dias === 1 ? 'hace 1 día' : `hace ${dias} días`
 }
+
 const contratosAtrasados = computed(() => {
   const limiteHoras = 48; const ahora = new Date()
   return contratosUsuarioValidos.value
+    // NUEVO: saltar los inactivos
+    .filter(c => c.activo !== false)
     .map(c => {
       const t = lastTimestampByContrato.value[c.id] ?? null
       if (t && isSameLocalDay(t, ahora)) {
         return { ...c, _diffH: 0, _lastText: humanizeDiff(t), _atrasado: false }
       }
-      const diffH = t ? (Date.now() - t.getTime()) / 36e5 : Infinity
+      const diffH = t ? (Date.now() - (t instanceof Date ? t : (t?.toDate ? t.toDate() : new Date(t))).getTime()) / 36e5 : Infinity
       return { ...c, _diffH: diffH, _lastText: humanizeDiff(t), _atrasado: diffH >= limiteHoras }
     })
     .filter(c => c._atrasado)
 })
+
 const contratosNuncaRegistrados = computed(() =>
   contratosUsuarioValidos.value.filter(c => lastTimestampByContrato.value[c.id] === null)
 )
@@ -1154,25 +1170,42 @@ async function obtenerContratosDelUsuario() {
   const auth = getAuth()
   const currentUser = auth.currentUser
   if (!currentUser) return
+
   const userDoc = await getDoc(doc(db, 'usuarios', currentUser.uid))
   if (!userDoc.exists()) return
+
   rolUsuario.value = userDoc.data().rol || ''
   const contratosIds = userDoc.data().contratosAsignados || []
   if (!contratosIds.length) return
+
   const chunks = []
   for (let i = 0; i < contratosIds.length; i += 10) chunks.push(contratosIds.slice(i, i + 10))
+
   const results = []
   for (const ids of chunks) {
     const contratosQuery = query(collection(db, 'contratos'), where('__name__', 'in', ids))
     const snapshot = await getDocs(contratosQuery)
-    results.push(...snapshot.docs.map(d => ({ id: d.id, ...d.data() })))
+    results.push(...snapshot.docs.map(d => {
+      const data = d.data() || {}
+      return {
+        id: d.id,
+        ...data,
+        // si no existe "activo", lo tratamos como activo para compatibilidad
+        activo: data.activo !== false
+      }
+    }))
   }
-  contratosUsuario.value = results
+
+  // 🔴 FILTRO CLAVE: quita los inactivos
+  contratosUsuario.value = results.filter(c => c.activo !== false)
+
+  // Lo restante se mantiene igual
   for (const c of contratosUsuario.value) cargarConteoEquipos(c.id)
   await revisarInactividadContratos()
   await nextTick()
   if (contratosAtrasados.value.length > 0) setTimeout(() => { showAlert.value = true }, 120)
 }
+
 
 /* ======================= CONTEO RÁPIDO ======================= */
 async function cargarConteoEquipos(contratoId) {
