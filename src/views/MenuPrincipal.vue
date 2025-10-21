@@ -23,7 +23,7 @@
         </div>
       </div>
 
-      <!-- Registro de Arriendos de Equipos -->
+      <!-- Solicitudes de Arriendos de Equipos -->
       <div class="col-12 col-md-6 col-lg-4">
         <div class="card menu-card h-100">
           <div class="card-body d-flex flex-column align-items-center text-center">
@@ -60,7 +60,9 @@
           </div>
         </div>
       </div>
-      <div class="col-12 col-md-6 col-lg-4">
+
+      <!-- Control OT (solo Admin / Visualizador) -->
+      <div class="col-12 col-md-6 col-lg-4" v-if="canSeeControlOT">
         <div class="card menu-card h-100">
           <div class="card-body d-flex flex-column align-items-center text-center">
             <i class="bi bi-clipboard-check fs-1 mb-3"></i>
@@ -82,7 +84,32 @@
 </template>
 
 <script setup>
-// sin lógica por ahora; es un menú “landing”
+import { ref, onMounted } from 'vue'
+import { getAuth, onAuthStateChanged } from 'firebase/auth'
+import { db } from '@/firebase/config'
+import { doc, getDoc } from 'firebase/firestore'
+
+const rol = ref('operador')
+const canSeeControlOT = ref(false)
+
+/**
+ * Lee el rol desde Firestore: usuarios/{uid}.rol
+ * (coincide con tu auth.js y router actual)
+ */
+onMounted(() => {
+  const auth = getAuth()
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      rol.value = 'operador'
+      canSeeControlOT.value = false
+      return
+    }
+    const snap = await getDoc(doc(db, 'usuarios', user.uid))
+    const r = (snap.exists() ? snap.data()?.rol : null) || 'operador'
+    rol.value = r
+    canSeeControlOT.value = r === 'admin' || r === 'visualizador'
+  })
+})
 </script>
 
 <style scoped>
@@ -95,7 +122,5 @@
   transform: translateY(-2px);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
 }
-.card-title {
-  font-weight: 700;
-}
+.card-title { font-weight: 700; }
 </style>

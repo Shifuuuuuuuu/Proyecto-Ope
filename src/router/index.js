@@ -15,12 +15,13 @@ import EquiposOperadorView from '../views/EquiposOperadorView.vue'
 import IngresoEquiposView from '../views/IngresoEquiposView.vue'
 const CargarCertificado = () => import('@/views/CargarCertificado.vue')
 const VerificarCertificado = () => import('@/views/VerificarCertificado.vue')
-// 🔻 Nuevas páginas y menú PRINCIPAL en lazy load para evitar “Module not found”
+
+// Nuevas páginas y menú PRINCIPAL (lazy)
 const MenuPrincipal = () => import('@/views/MenuPrincipal.vue')
 const RegistroArriendos = () => import('@/views/RegistroArriendos.vue')
 const ReportesFallas = () => import('@/views/ReportesFallas.vue')
 const GestorOT = () => import('@/views/GestorOT.vue')
-// Si más adelante conviertes estas a archivos reales, no habrá que tocar el router.
+
 const ALLOWED_INGRESO_EMAILS = [
   'sectecentral@xtrememining.cl',
   'pbustos@xtrememining.cl',
@@ -32,7 +33,7 @@ const ALLOWED_INGRESO_EMAILS = [
 const routes = [
   { path: '/', name: 'Home', component: Home },
 
-  // Menú principal (landing de botones)
+  // Menú principal
   { path: '/menu', name: 'MenuPrincipal', component: MenuPrincipal, meta: { requiresAuth: true } },
 
   // Auth
@@ -49,7 +50,7 @@ const routes = [
   // Vista operador
   { path: '/mis-equipos', name: 'MisEquipos', component: EquiposOperadorView, meta: { requiresAuth: true, onlyRoles: ['operador', 'admin'] } },
 
-  // Ingreso de contratos/equipos (con guardia especial por rol y whitelist)
+  // Ingreso de contratos/equipos
   { path: '/ingreso-contratos', name: 'IngresoContratos', component: IngresoEquiposView, meta: { requiresAuth: true }, alias: ['/ingreso-equipos'] },
 
   // Historial de ingreso
@@ -72,7 +73,7 @@ const routes = [
     meta: { requiresAuth: true, requiresAdmin: true }
   },
 
-  // 🔻 NUEVO: Registro de Arriendos
+  // Registro de Arriendos
   {
     path: '/arriendos',
     name: 'RegistroArriendos',
@@ -80,32 +81,32 @@ const routes = [
     meta: { requiresAuth: true }
   },
 
-  // 🔻 NUEVO: Reportes de Fallas
+  // Reportes de Fallas
   {
     path: '/fallas',
     name: 'ReportesFallas',
     component: ReportesFallas,
     meta: { requiresAuth: true }
   },
-    {
+  {
     path: '/cargar-certificado',
     name: 'CargarCertificado',
     component: CargarCertificado,
-    meta: { requiresAuth: true, onlyRoles: ['admin'] } // <- ajusta si deseas incluir 'operador'
+    meta: { requiresAuth: true, onlyRoles: ['admin'] }
   },
   {
     path: '/verificar',
     name: 'VerificarCertificado',
     component: VerificarCertificado
-    // pública: sin requiresAuth
   },
+
+  // ======= RESTRICCION CONTROL OT =======
   {
     path: '/gestor-ot',
     name: 'GestorOT',
     component: GestorOT,
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, onlyRoles: ['admin', 'visualizador'] } // <-- aquí se bloquea Operador
   }
-
 ]
 
 const router = createRouter({
@@ -131,8 +132,9 @@ const ALLOWED_VISUALIZADOR = new Set([
   'IngresoContratos',
   'OTsPage',
   'MenuPrincipal',
-  'RegistroArriendos',  
-  'ReportesFallas'      
+  'RegistroArriendos',
+  'ReportesFallas',
+  'GestorOT' // <-- agrega GestorOT para que su propio filtro no lo bloquee
 ])
 
 router.beforeEach(async (to, from, next) => {

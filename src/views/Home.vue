@@ -1192,7 +1192,11 @@ async function cargarContratoDetalle(contratoId, { force = false } = {}) {
     // Equipos
     let equipos = []
     try {
-      const qeOrdered = query(collection(db, 'equipos'), where('contratoId', '==', contratoId), orderBy('nombre_equipo'))
+      const qeOrdered = query(
+        collection(db, 'equipos'),
+        where('contratoId', '==', contratoId),
+        orderBy('nombre_equipo')
+      )
       const se = await getDocs(qeOrdered)
       equipos = se.docs.map(d => ({ id: d.id, ...d.data() }))
     } catch {
@@ -1200,8 +1204,23 @@ async function cargarContratoDetalle(contratoId, { force = false } = {}) {
       const se = await getDocs(qe)
       equipos = se.docs
         .map(d => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => String(a.nombre_equipo || '').localeCompare(String(b.nombre_equipo || ''), 'es', { sensitivity: 'base' }))
+        .sort((a, b) =>
+          String(a.nombre_equipo || '').localeCompare(String(b.nombre_equipo || ''), 'es', { sensitivity: 'base' })
+        )
     }
+
+    // ⬇️⬇️ NUEVO: filtrar equipos ocultos
+    // Si usas solo una bandera (por ejemplo "oculto: true" o "visible: false"), esta línea las cubre.
+    // - e.oculto === true  -> se oculta
+    // - e.visible === false -> se oculta
+    // - e.visible_actual === false -> se oculta
+    equipos = equipos.filter(e =>
+      e?.oculto !== true &&
+      e?.visible !== false &&
+      e?.visible_actual !== false
+    )
+    // ⬆️⬆️ NUEVO
+
     equiposByContrato.value[contratoId] = equipos
     conteoEquipos.value[contratoId] = equipos.length
 
@@ -1217,8 +1236,11 @@ async function cargarContratoDetalle(contratoId, { force = false } = {}) {
 
     // Buffers
     inicializarValoresDesde(contratoId)
-  } finally { loadingContrato.value[contratoId] = false }
+  } finally {
+    loadingContrato.value[contratoId] = false
+  }
 }
+
 function inicializarValoresDesde(contratoId) {
   const oper = operByContrato.value[contratoId] || []
   for (const item of oper) {

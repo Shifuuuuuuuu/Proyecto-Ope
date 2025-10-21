@@ -336,10 +336,18 @@
                     Patente: {{ e.patente }}<br />
                     Modelo: {{ e.fecha_modelo }}<br />
                     Categoría: {{ e.categoria || 'N/A' }}<br />
-                    Contrato: {{ nombreContrato(e.contratoId) }}
+                    Contrato: {{ nombreContrato(e.contratoId) }}<br />
+                    <!-- NUEVO: badge visibilidad -->
+                    <span class="badge" :class="e.visible_actual === false ? 'text-bg-secondary' : 'text-bg-success'">
+                      {{ e.visible_actual === false ? 'Oculto en mes actual' : 'Visible en mes actual' }}
+                    </span>
                   </div>
                   <div class="mt-2 mt-sm-0 d-flex gap-1">
                     <button @click="editarEquipo(e)" class="btn btn-sm btn-outline-primary">✏️</button>
+                    <!-- NUEVO: toggle visibilidad -->
+                    <button @click="toggleVisibleEquipo(e)" class="btn btn-sm btn-outline-secondary">
+                      {{ e.visible_actual === false ? 'Hacer visible' : 'Ocultar ahora' }}
+                    </button>
                     <button @click="confirmEliminarEquipo(e.id)" class="btn btn-sm btn-outline-danger">🗑️</button>
                   </div>
                 </li>
@@ -397,6 +405,18 @@
                   <option v-for="c in contratos" :key="c.id" :value="c.id">{{ c.nombre }}</option>
                 </select>
               </div>
+
+              <!-- NUEVO: switch de visibilidad -->
+              <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" id="swVisible" v-model="nuevoEquipo.visible_actual">
+                <label class="form-check-label" for="swVisible">
+                  Mostrar en operatividad del <strong>mes actual</strong>
+                </label>
+                <div class="form-text">
+                  Desactívalo si el equipo está arrendado pero **no se usará** este mes (seguirá visible en meses anteriores).
+                </div>
+              </div>
+
               <button type="submit" class="btn btn-warning w-100 btn-w-xs" :disabled="loadingEquiposBtn">
                 {{ loadingEquiposBtn ? 'Guardando...' : modoEdicionEquipo ? 'Actualizar Equipo' : 'Agregar Equipo' }}
               </button>
@@ -609,8 +629,7 @@ const router = useRouter()
 const volver = () => router.back()
 
 /** ------------- TOASTS ------------- **/
-const toasts = ref([])
-let toastId = 0
+const toasts = ref([]); let toastId = 0
 function toastOk(msg){ toasts.value.push({ id: ++toastId, msg, variant: 'success' }); autoHide(toastId) }
 function toastErr(msg){ toasts.value.push({ id: ++toastId, msg, variant: 'danger' }); autoHide(toastId) }
 function autoHide(id){ setTimeout(()=> closeToast(id), 3500) }
@@ -971,7 +990,7 @@ async function agregarCategoria(){
   }
 }
 
-/** ------------- CRUD Equipos con búsqueda OR ------------- **/
+/** ------------- CRUD Equipos + visibilidad ------------- **/
 const modoEdicionEquipo = ref(false)
 const equipoEditId = ref(null)
 const nuevoEquipo = ref({
@@ -979,7 +998,8 @@ const nuevoEquipo = ref({
   patente: '',
   fecha_modelo: '',
   categoria: '',
-  contratoId: ''
+  contratoId: '',
+  visible_actual: true, // default visible en mes actual
 })
 
 async function obtenerEquiposTodos() {
@@ -988,6 +1008,19 @@ async function obtenerEquiposTodos() {
     equiposTodos.value = snap.docs.map(d => ({ id: d.id, ...d.data() }))
   } catch (err) {
     toastErr('Error al obtener equipos (datalist): ' + err.message)
+  }
+}
+
+/** NUEVO: alternar visibilidad mes actual */
+async function toggleVisibleEquipo(equipo) {
+  try {
+    const nuevo = (equipo.visible_actual === false) ? true : false
+    await updateDoc(doc(db, 'equipos', equipo.id), { visible_actual: nuevo })
+    toastOk(nuevo ? 'Equipo visible en mes actual' : 'Equipo oculto para mes actual')
+    await recargarEquipos()
+    await obtenerEquiposTodos()
+  } catch (err) {
+    toastErr('No se pudo cambiar visibilidad: ' + err.message)
   }
 }
 
@@ -1009,7 +1042,7 @@ function qEquiposPorNombrePrefijo(pref, contratoId, categoria) {
   if (contratoId) {
     return query(
       col,
-      where('contratoId', '==', contratoId),
+      where('contratoId', '==', contratoFiltrado.value),
       orderBy('nombre_equipo'),
       where('nombre_equipo', '>=', p),
       where('nombre_equipo', '<=', p + '\uf8ff'),
@@ -1213,15 +1246,15 @@ async function agregarEquipo() {
     const nuevoId = await obtenerSiguienteId('equipos')
     const payload = {
       id: nuevoId,
-      nombre_equipo: nuevoEquipo.value.nombre_equipo,
-      patente: nuevoEquipo.value.patente,
+      nombre_equipo: String(nuevoEquipo.value.nombre_equipo || '').toUpperCase(),
+      patente: String(nuevoEquipo.value.patente || '').toUpperCase(),
       fecha_modelo: parseInt(nuevoEquipo.value.fecha_modelo),
-      categoria: nuevoEquipo.value.categoria,
-      contratoId: nuevoEquipo.value.contratoId
+      categoria: String(nuevoEquipo.value.categoria || '').toUpperCase(),
+      contratoId: nuevoEquipo.value.contratoId,
+      visible_actual: nuevoEquipo.value.visible_actual !== false
     }
-    toUpperSafe(payload, ['nombre_equipo','patente','categoria'])
     await setDoc(doc(db, 'equipos', String(nuevoId)), payload)
-    nuevoEquipo.value = { nombre_equipo:'', patente:'', fecha_modelo:'', categoria:'', contratoId:'' }
+    nuevoEquipo.value = { nombre_equipo:'', patente:'', fecha_modelo:'', categoria:'', contratoId:'', visible_actual:true }
     await obtenerEquiposTodos()
     await recargarEquipos()
     toastOk('Equipo agregado')
@@ -1240,7 +1273,8 @@ function editarEquipo(equipo) {
     patente: equipo.patente,
     fecha_modelo: equipo.fecha_modelo,
     categoria: equipo.categoria || '',
-    contratoId: equipo.contratoId
+    contratoId: equipo.contratoId,
+    visible_actual: equipo.visible_actual !== false
   }
 }
 
@@ -1248,17 +1282,17 @@ async function actualizarEquipo() {
   loadingEquiposBtn.value = true
   try {
     const payload = {
-      nombre_equipo: nuevoEquipo.value.nombre_equipo,
-      patente: nuevoEquipo.value.patente,
+      nombre_equipo: String(nuevoEquipo.value.nombre_equipo || '').toUpperCase(),
+      patente: String(nuevoEquipo.value.patente || '').toUpperCase(),
       fecha_modelo: parseInt(nuevoEquipo.value.fecha_modelo),
-      categoria: nuevoEquipo.value.categoria,
-      contratoId: nuevoEquipo.value.contratoId
+      categoria: String(nuevoEquipo.value.categoria || '').toUpperCase(),
+      contratoId: nuevoEquipo.value.contratoId,
+      visible_actual: nuevoEquipo.value.visible_actual !== false
     }
-    toUpperSafe(payload, ['nombre_equipo','patente','categoria'])
     await updateDoc(doc(db, 'equipos', equipoEditId.value), payload)
     modoEdicionEquipo.value = false
     equipoEditId.value = null
-    nuevoEquipo.value = { nombre_equipo:'', patente:'', fecha_modelo:'', categoria:'', contratoId:'' }
+    nuevoEquipo.value = { nombre_equipo:'', patente:'', fecha_modelo:'', categoria:'', contratoId:'', visible_actual:true }
     await obtenerEquiposTodos()
     await recargarEquipos()
     toastOk('Equipo actualizado')
@@ -1284,7 +1318,7 @@ async function confirmEliminarEquipo(id){
 function cancelarEdicionEquipo(){
   modoEdicionEquipo.value = false
   equipoEditId.value = null
-  nuevoEquipo.value = { nombre_equipo:'', patente:'', fecha_modelo:'', categoria:'', contratoId:'' }
+  nuevoEquipo.value = { nombre_equipo:'', patente:'', fecha_modelo:'', categoria:'', contratoId:'', visible_actual:true }
 }
 
 /** ------------- Metas operatividad ------------- **/
@@ -1472,7 +1506,8 @@ async function confirmarCargaMasiva(){
           patente: row.patente,
           fecha_modelo: parseInt(row.fecha_modelo),
           categoria: row.categoria,
-          contratoId: row.contratoId
+          contratoId: row.contratoId,
+          visible_actual: true // por defecto visibles al cargar masivo
         }
         const docRef = doc(db, 'equipos', String(nuevoId))
         batch.set(docRef, payload)
