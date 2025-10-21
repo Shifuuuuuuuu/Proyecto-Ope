@@ -20,7 +20,6 @@ const VerificarCertificado = () => import('@/views/VerificarCertificado.vue')
 const MenuPrincipal = () => import('@/views/MenuPrincipal.vue')
 const RegistroArriendos = () => import('@/views/RegistroArriendos.vue')
 const ReportesFallas = () => import('@/views/ReportesFallas.vue')
-const GestorOT = () => import('@/views/GestorOT.vue')
 
 const ALLOWED_INGRESO_EMAILS = [
   'sectecentral@xtrememining.cl',
@@ -99,13 +98,29 @@ const routes = [
     name: 'VerificarCertificado',
     component: VerificarCertificado
   },
-
-  // ======= RESTRICCION CONTROL OT =======
   {
-    path: '/gestor-ot',
-    name: 'GestorOT',
-    component: GestorOT,
-    meta: { requiresAuth: true, onlyRoles: ['admin', 'visualizador'] } // <-- aquí se bloquea Operador
+    path: '/menu-ots',
+    name: 'SubMenuOT',
+    component: () => import('../views/SubMenuOT.vue'),
+    meta: { requiresAuth: true, onlyRoles: ['admin', 'visualizador'] }
+  },
+  {
+    path: '/gestor-ot-ordenes',
+    name: 'GestorOT_Ordenes',
+    component: () => import('../views/GestorOT_Ordenes.vue'),
+    meta: { requiresAuth: true, onlyRoles: ['admin', 'visualizador'] }
+  },
+  {
+    path: '/gestor-lecturas',
+    name: 'GestorOT_Lecturas',
+    component: () => import('../views/GestorOT_Lecturas.vue'),
+    meta: { requiresAuth: true, onlyRoles: ['admin', 'visualizador'] }
+  },
+  {
+    path: '/cambio-aceite-motor',
+    name: 'CambioAceiteMotor',
+    component: () => import('../views/CambioAceiteMotor.vue'),
+    meta: { requiresAuth: true, onlyRoles: ['admin', 'visualizador'] }
   }
 ]
 

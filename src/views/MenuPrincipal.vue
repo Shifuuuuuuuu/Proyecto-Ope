@@ -66,12 +66,12 @@
         <div class="card menu-card h-100">
           <div class="card-body d-flex flex-column align-items-center text-center">
             <i class="bi bi-clipboard-check fs-1 mb-3"></i>
-            <h5 class="card-title">Control OT</h5>
+            <h5 class="card-title">Control información de Órdenes de Trabajo</h5>
             <p class="card-text text-muted">
-              Gestiona y monitorea las Órdenes de Trabajo (OT).
+              Gestiona y monitorea la información de las Órdenes de Trabajo (OT).
             </p>
             <router-link
-              :to="{ name: 'GestorOT' }"
+              :to="{ name: 'SubMenuOT' }"
               class="btn btn-danger mt-auto w-100"
             >
               Abrir
