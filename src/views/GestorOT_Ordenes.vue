@@ -13,7 +13,7 @@
 
       <h1 class="h4 fw-semibold mb-0">Gestor OT · Órdenes de Trabajo</h1>
 
-      <div class="d-flex flex-wrap gap-2 align-items-center">
+      <div class="d-flex flex-wrap gap-3 align-items-center">
         <div class="d-flex align-items-center gap-2">
           <label class="form-label mb-0 small text-muted">Fuente:</label>
           <select v-model="fuente" class="form-select form-select-sm" style="width: 190px">
@@ -28,84 +28,280 @@
             <i class="bi bi-arrow-clockwise"></i> Refrescar
           </button>
         </div>
+
+        <!-- Toggle comparar -->
+        <div class="form-check form-switch d-flex align-items-center gap-2">
+          <input class="form-check-input" type="checkbox" id="chkComparar" v-model="comparar.enabled">
+          <label class="form-check-label small text-muted" for="chkComparar">
+            Comparar con archivo
+          </label>
+        </div>
+
         <span class="badge bg-dark">OTs ≥{{ OTS_MIN_DIAS }}: {{ viewOTs.length }}</span>
       </div>
     </div>
 
+    <!-- Ayuda para comparación -->
+    <div v-if="comparar.enabled" class="alert alert-light d-flex align-items-center justify-content-between py-2 px-3 border">
+      <div class="small">
+        <i class="bi bi-info-circle me-2"></i>
+        Vista: <strong>{{ fuente === 'firestore' ? 'Publica' : 'Local' }}</strong>.
+        Se marcarán como <strong>Repetido</strong> si la OT existe también en
+        <strong>{{ fuente === 'firestore' ? 'Archivo comparación (derecha)' : 'Publicado (izquierda)' }}</strong>.
+      </div>
+      <label
+        class="btn btn-sm btn-outline-secondary mb-0"
+        title="Subir archivo para comparar"
+      >
+        <i class="bi bi-upload"></i> Archivo de comparación
+        <input type="file" accept=".xlsx,.xls,.csv" class="d-none" @change="onFileChangeCmp">
+      </label>
+    </div>
+
     <!-- CONTENIDO: solo cuando NO está cargando -->
     <div v-if="!sync.loading" class="col-12">
-      <div v-for="grupo in gruposOTsPorContrato" :key="grupo.key" class="mb-4">
-        <div class="d-flex align-items-center justify-content-between mb-2">
-          <h5 class="mb-0">
-            Contrato:
-            <span class="fw-semibold">{{ grupo.nombre || 'Sin contrato' }}</span>
-            <span
-              class="badge ms-2"
-              :class="grupo.key==='__sin__' ? 'bg-warning text-dark' : 'bg-secondary'"
-            >
-              {{ grupo.items.length }}
-            </span>
-          </h5>
-        </div>
-
-        <div
-          class="table-responsive border rounded excel-area"
-          :class="{ dense: ui.density==='compacto', mobile: isMobile }"
-          :style="{ '--excel-font-scale': ui.fontScale }"
-        >
-          <table class="table table-hover align-middle mb-0">
-            <thead class="table-light sticky-head">
-              <tr>
-                <th>Folio OT</th>
-                <th>Fecha</th>
-                <th>Usuario</th>
-                <th>Equipo</th>
-                <th class="text-end pe-3">Días</th>
-                <th>Responsable</th>
-              </tr>
-            </thead>
-            <tbody v-if="grupo.items.length">
-              <tr
-                v-for="(r, idx) in grupo.items"
-                :key="idx"
-                class="row-click"
-                @click="openDetail(r)"
+      <!-- Modo normal (una tabla) -->
+      <template v-if="!comparar.enabled">
+        <div v-for="grupo in gruposOTsPorContrato" :key="grupo.key" class="mb-4">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <h5 class="mb-0">
+              Contrato:
+              <span class="fw-semibold">{{ grupo.nombre || 'Sin contrato' }}</span>
+              <span
+                class="badge ms-2"
+                :class="grupo.key==='__sin__' ? 'bg-warning text-dark' : 'bg-secondary'"
               >
-                <td>{{ r.folio_ot || '—' }}</td>
-                <td>{{ fmtFechaSlash(r.del) }}</td>
-                <td class="text-truncate" style="max-width: 220px" :title="r.usuario_genero">
-                  {{ r.usuario_genero || '—' }}
-                </td>
-                <td
-                  class="text-truncate"
-                  style="max-width: 320px"
-                  :title="r.eq ? equipoTitle(r.eq) : r.equipo_inmueble"
-                >
-                  <template v-if="r.eq">{{ equipoLabel(r.eq) }}</template>
-                  <template v-else>
-                    {{ r.equipo_inmueble || '—' }}
-                    <span class="badge bg-warning text-dark ms-1">Falta agregar equipo</span>
-                  </template>
-                </td>
-                <td class="text-end pe-3 text-danger fw-bold">{{ r.dias_abiertas }}</td>
-                <td class="text-truncate" style="max-width: 220px" :title="r.responsable">
-                  {{ r.responsable || '—' }}
-                </td>
-              </tr>
-            </tbody>
-            <tbody v-else>
-              <tr>
-                <td colspan="8" class="text-center text-muted py-4">Sin datos para este contrato</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+                {{ grupo.items.length }}
+              </span>
+            </h5>
+          </div>
 
-      <!-- ALERTA cuando no hay resultados (luego de cargar) -->
-      <div v-if="!gruposOTsPorContrato.length" class="alert alert-secondary mt-5">
-        No hay OTs con {{ OTS_MIN_DIAS }} o más días abiertas.
-      </div>
+          <div
+            class="table-responsive border rounded excel-area"
+            :class="{ dense: ui.density==='compacto', mobile: isMobile }"
+            :style="{ '--excel-font-scale': ui.fontScale }"
+          >
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light sticky-head">
+                <tr>
+                  <th>Folio OT</th>
+                  <th>Fecha</th>
+                  <th>Usuario</th>
+                  <th>Equipo</th>
+                  <th class="text-end pe-3">Días</th>
+                  <th>Responsable</th>
+                </tr>
+              </thead>
+              <tbody v-if="grupo.items.length">
+                <tr
+                  v-for="(r, idx) in grupo.items"
+                  :key="idx"
+                  class="row-click"
+                  @click="openDetail(r)"
+                >
+                  <td>
+                    {{ r.folio_ot || '—' }}
+                    <span
+                      v-if="comparar.enabled && isDuplicate(r)"
+                      class="ms-2 badge bg-warning text-dark"
+                      :title="fuente==='firestore' ? 'También existe en Local (archivo comparación)' : 'También existe en Publicado (Firestore)'"
+                    >
+                      Repetido
+                    </span>
+                  </td>
+                  <td>{{ fmtFechaSlash(r.del) }}</td>
+                  <td class="text-truncate" style="max-width: 220px" :title="r.usuario_genero">
+                    {{ r.usuario_genero || '—' }}
+                  </td>
+                  <td
+                    class="text-truncate"
+                    style="max-width: 320px"
+                    :title="r.eq ? equipoTitle(r.eq) : r.equipo_inmueble"
+                  >
+                    <template v-if="r.eq">{{ equipoLabel(r.eq) }}</template>
+                    <template v-else>
+                      {{ r.equipo_inmueble || '—' }}
+                      <span class="badge bg-warning text-dark ms-1">Falta agregar equipo</span>
+                    </template>
+                  </td>
+                  <td class="text-end pe-3" :class="r.vencido ? 'text-danger fw-bold' : ''">{{ r.dias_abiertas }}</td>
+                  <td class="text-truncate" style="max-width: 220px" :title="r.responsable">
+                    {{ r.responsable || '—' }}
+                  </td>
+                </tr>
+              </tbody>
+              <tbody v-else>
+                <tr>
+                  <td colspan="8" class="text-center text-muted py-4">Sin datos para este contrato</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div v-if="!gruposOTsPorContrato.length" class="alert alert-secondary mt-5">
+          No hay OTs con {{ OTS_MIN_DIAS }} o más días abiertas.
+        </div>
+      </template>
+
+      <!-- Modo comparativa (dos tablas lado a lado) -->
+      <template v-else>
+        <div class="row g-3">
+          <!-- Izquierda: fuente principal (Publica si fuente==='firestore', si no Local) -->
+          <div class="col-12 col-xl-6">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <h5 class="mb-0">
+                {{ fuente==='firestore' ? 'Publicada (Firestore)' : 'Local de trabajo' }}
+                <span class="badge text-bg-secondary ms-2">{{ viewOTs.length }}</span>
+              </h5>
+            </div>
+
+            <div v-for="grupo in gruposOTsPorContrato" :key="'L-'+grupo.key" class="mb-4">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <h6 class="mb-0">
+                  Contrato:
+                  <span class="fw-semibold">{{ grupo.nombre || 'Sin contrato' }}</span>
+                  <span class="badge text-bg-light ms-2">{{ grupo.items.length }}</span>
+                </h6>
+              </div>
+
+              <div
+                class="table-responsive border rounded excel-area"
+                :class="{ dense: ui.density==='compacto', mobile: isMobile }"
+                :style="{ '--excel-font-scale': ui.fontScale }"
+              >
+                <table class="table table-hover align-middle mb-0">
+                  <thead class="table-light sticky-head">
+                    <tr>
+                      <th>Folio OT</th>
+                      <th>Fecha</th>
+                      <th>Usuario</th>
+                      <th>Equipo</th>
+                      <th class="text-end pe-3">Días</th>
+                      <th>Resp.</th>
+                    </tr>
+                  </thead>
+                  <tbody v-if="grupo.items.length">
+                    <tr
+                      v-for="(r, idx) in grupo.items"
+                      :key="'LI-'+idx"
+                      class="row-click"
+                      @click="openDetail(r)"
+                    >
+                      <td>
+                        {{ r.folio_ot || '—' }}
+                        <span v-if="isDuplicate(r)" class="ms-2 badge bg-warning text-dark">Repetido</span>
+                      </td>
+                      <td>{{ fmtFechaSlash(r.del) }}</td>
+                      <td class="text-truncate" style="max-width: 160px" :title="r.usuario_genero">
+                        {{ r.usuario_genero || '—' }}
+                      </td>
+                      <td class="text-truncate" style="max-width: 260px" :title="r.eq ? equipoTitle(r.eq) : r.equipo_inmueble">
+                        <template v-if="r.eq">{{ equipoLabel(r.eq) }}</template>
+                        <template v-else>
+                          {{ r.equipo_inmueble || '—' }}
+                          <span class="badge bg-warning text-dark ms-1">Falta agregar</span>
+                        </template>
+                      </td>
+                      <td class="text-end pe-3" :class="r.vencido ? 'text-danger fw-bold' : ''">{{ r.dias_abiertas }}</td>
+                      <td class="text-truncate" style="max-width: 160px" :title="r.responsable">
+                        {{ r.responsable || '—' }}
+                      </td>
+                    </tr>
+                  </tbody>
+                  <tbody v-else>
+                    <tr>
+                      <td colspan="8" class="text-center text-muted py-4">Sin datos para este contrato</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div v-if="!gruposOTsPorContrato.length" class="alert alert-secondary">
+              No hay OTs con {{ OTS_MIN_DIAS }} o más días abiertas.
+            </div>
+          </div>
+
+          <!-- Derecha: “el otro lado” de la comparación -->
+          <div class="col-12 col-xl-6">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <h5 class="mb-0">
+                {{ fuente==='firestore' ? 'Archivo comparación (Local)' : 'Publicada (Firestore)' }}
+                <span class="badge text-bg-secondary ms-2">{{ compareView.length }}</span>
+              </h5>
+              <small class="text-muted" v-if="fuente==='firestore'">
+                Cárgalo en panel o arriba (botón “Archivo de comparación”)
+              </small>
+            </div>
+
+            <div v-for="grupo in gruposComparePorContrato" :key="'R-'+grupo.key" class="mb-4">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <h6 class="mb-0">
+                  Contrato:
+                  <span class="fw-semibold">{{ grupo.nombre || 'Sin contrato' }}</span>
+                  <span class="badge text-bg-light ms-2">{{ grupo.items.length }}</span>
+                </h6>
+              </div>
+
+              <div
+                class="table-responsive border rounded excel-area"
+                :class="{ dense: ui.density==='compacto', mobile: isMobile }"
+                :style="{ '--excel-font-scale': ui.fontScale }"
+              >
+                <table class="table table-hover align-middle mb-0">
+                  <thead class="table-light sticky-head">
+                    <tr>
+                      <th>Folio OT</th>
+                      <th>Fecha</th>
+                      <th>Usuario</th>
+                      <th>Equipo</th>
+                      <th class="text-end pe-3">Días</th>
+                      <th>Resp.</th>
+                    </tr>
+                  </thead>
+                  <tbody v-if="grupo.items.length">
+                    <tr
+                      v-for="(r, idx) in grupo.items"
+                      :key="'RI-'+idx"
+                      class="row-click"
+                    >
+                      <td>
+                        {{ r.folio_ot || '—' }}
+                        <span v-if="isDuplicateInverse(r)" class="ms-2 badge bg-warning text-dark">Repetido</span>
+                      </td>
+                      <td>{{ fmtFechaSlash(r.del) }}</td>
+                      <td class="text-truncate" style="max-width: 160px" :title="r.usuario_genero">
+                        {{ r.usuario_genero || '—' }}
+                      </td>
+                      <td class="text-truncate" style="max-width: 260px" :title="r.eq ? equipoTitle(r.eq) : r.equipo_inmueble">
+                        <template v-if="r.eq">{{ equipoLabel(r.eq) }}</template>
+                        <template v-else>
+                          {{ r.equipo_inmueble || '—' }}
+                          <span class="badge bg-warning text-dark ms-1">Falta agregar</span>
+                        </template>
+                      </td>
+                      <td class="text-end pe-3" :class="r.vencido ? 'text-danger fw-bold' : ''">{{ r.dias_abiertas }}</td>
+                      <td class="text-truncate" style="max-width: 160px" :title="r.responsable">
+                        {{ r.responsable || '—' }}
+                      </td>
+                    </tr>
+                  </tbody>
+                  <tbody v-else>
+                    <tr>
+                      <td colspan="8" class="text-center text-muted py-4">Sin datos para este contrato</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div v-if="!gruposComparePorContrato.length" class="alert alert-secondary">
+              No hay OTs para comparar.
+            </div>
+          </div>
+        </div>
+      </template>
     </div>
 
     <!-- OVERLAY DE CARGA (spinner) -->
@@ -165,12 +361,29 @@
 
         <hr>
 
-        <!-- Carga OTs (LOCAL) -->
+        <!-- Carga OTs (LOCAL principal) -->
         <div class="mb-3">
-          <label class="form-label fw-semibold">Subir OTs (Excel/CSV)</label>
+          <label class="form-label fw-semibold">Subir OTs (Excel/CSV) — Local de trabajo</label>
           <label class="btn btn-outline-secondary w-100 mb-2">
             <i class="bi bi-upload"></i> Subir OTs
             <input type="file" accept=".xlsx,.xls,.csv" class="d-none" @change="onFileChangeOTs" />
+          </label>
+          <div class="form-text">Estas son las que puedes publicar o sincronizar (reemplazar) en Firestore.</div>
+        </div>
+
+        <!-- Carga OTs (archivo de comparación) -->
+        <div class="mb-3">
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="chkCompararPanel" v-model="comparar.enabled">
+            <label class="form-check-label" for="chkCompararPanel">Activar comparación</label>
+          </div>
+          <label class="form-label fw-semibold d-flex align-items-center gap-2">
+            Archivo de comparación (Local)
+            <span class="badge text-bg-light">Solo para comparar; no se publica</span>
+          </label>
+          <label class="btn btn-outline-secondary w-100 mb-1">
+            <i class="bi bi-upload"></i> Subir archivo de comparación
+            <input type="file" accept=".xlsx,.xls,.csv" class="d-none" @change="onFileChangeCmp" />
           </label>
         </div>
 
@@ -224,7 +437,15 @@
           <div class="row g-3" v-if="detail.item">
             <div class="col-12 col-md-6">
               <div class="small text-muted">Folio OT</div>
-              <div class="fw-semibold">{{ detail.item.folio_ot || '—' }}</div>
+              <div class="fw-semibold">
+                {{ detail.item.folio_ot || '—' }}
+                <span
+                  v-if="comparar.enabled && isDuplicate(detail.item)"
+                  class="ms-2 badge bg-warning text-dark"
+                >
+                  Repetido
+                </span>
+              </div>
             </div>
             <div class="col-6 col-md-3">
               <div class="small text-muted">Fecha</div>
@@ -232,7 +453,9 @@
             </div>
             <div class="col-6 col-md-3">
               <div class="small text-muted">Días abiertas</div>
-              <div class="fw-bold text-danger">{{ detail.item.dias_abiertas }}</div>
+              <div class="fw-bold" :class="detail.item.vencido ? 'text-danger' : ''">
+                {{ detail.item.dias_abiertas }}
+              </div>
             </div>
 
             <div class="col-12">
@@ -329,17 +552,29 @@ function updateIsMobile() {
 const { equipos, contratos, idxEqByKey, loadCatalogos, matchEquipoPorTexto, equipoLabel, equipoTitle } = useCatalogos();
 
 /** ===== Local & Remote ===== **/
-const otRows = ref([]);
-const remoteOTs = ref([]);
-const remoteLecturasAll = ref([]); // para modal buscar lectura de equipo
+const otRows = ref([]);            // local principal (trabajo)
+const remoteOTs = ref([]);         // publicado (Firestore)
+const remoteLecturasAll = ref([]); // lecturas para modal
 const detail = reactive({ open: false, item: null, lectura: null });
+
+/** ===== Comparación ===== **/
+const comparar = reactive({
+  enabled: false,
+  rows: [],             // archivo de comparación (local aparte)
+  keysLocal: new Set(), // firmas del archivo comparación
+  keysRemote: new Set() // firmas construidas desde remoteOTs
+});
 
 /* ===== Carga inicial ===== */
 onMounted(async () => {
   updateIsMobile(); window.addEventListener("resize", updateIsMobile);
-  try { const raw = localStorage.getItem("gestor_ot_rows_v9"); if (raw) otRows.value = JSON.parse(raw); } catch(e) { console.error(e); }
+  try {
+    const raw = localStorage.getItem("gestor_ot_rows_v9");
+    if (raw) otRows.value = JSON.parse(raw);
+  } catch(e) { console.error(e); }
   await loadCatalogos();
   await refreshRemote();
+  rebuildCompareRemoteKeys();
 });
 onBeforeUnmount(() => window.removeEventListener("resize", updateIsMobile));
 
@@ -348,7 +583,9 @@ watch(otRows, v => {
   try { localStorage.setItem("gestor_ot_rows_v9", JSON.stringify(v||[])); } catch(e) { console.error(e); }
 }, {deep:true});
 
-/* ===== Subida local OTs ===== */
+/* =========================
+   Subida local OTs (trabajo)
+========================= */
 async function onFileChangeOTs(e) {
   const file = e.target.files?.[0]; if (!file) return;
   const data = await file.arrayBuffer();
@@ -357,7 +594,19 @@ async function onFileChangeOTs(e) {
   e.target.value = "";
 }
 
-/* ===== Enriquecimiento LOCAL ===== */
+/* =========================
+   Subida archivo de comparación
+========================= */
+async function onFileChangeCmp(e) {
+  const file = e.target.files?.[0]; if (!file) return;
+  const data = await file.arrayBuffer();
+  const wb = XLSX.read(data, { type: "array" });
+  comparar.rows = parseOTFileToRows(wb);
+  buildCompareLocalKeys();
+  e.target.value = "";
+}
+
+/* ===== Enriquecimiento LOCAL (trabajo) ===== */
 const enrichedOTsLocal = computed(() => {
   const hoyISO = todayISO();
   return otRows.value.map(r => {
@@ -376,6 +625,38 @@ const enrichedOTsLocal = computed(() => {
 });
 const filteredOTsLocal = computed(() => enrichedOTsLocal.value.filter(r => r.dias_abiertas >= OTS_MIN_DIAS));
 
+/* ===== Enriquecimiento COMPARACIÓN (archivo aparte) ===== */
+const enrichedOTsCmp = computed(() => {
+  const hoyISO = todayISO();
+  return comparar.rows.map(r => {
+    const eq = matchEquipoPorTexto(r.equipo_inmueble);
+    const diasCalc = r.del ? diffDias(r.del, hoyISO) : 0;
+    const dias_abiertas = Number.isFinite(r.dias_abiertas_origen) && r.dias_abiertas_origen > 0
+      ? r.dias_abiertas_origen : diasCalc;
+    const vencido = (r.estado || 'Abierta').toLowerCase() !== 'cerrada' && dias_abiertas > DIAS_VENCIMIENTO;
+    return { ...r, eq, dias_abiertas, vencido };
+  });
+});
+const filteredOTsCmp = computed(() => enrichedOTsCmp.value.filter(r => r.dias_abiertas >= OTS_MIN_DIAS));
+
+/* ===== Firmas ===== */
+function signatureFromRow(r) {
+  if (r?.folio_ot) return `F:${toKeyNoDash(r.folio_ot)}`;
+  const eqKey = equipoKeyFromRow(r) || '';
+  const fecha = r?.del || '';
+  return `E:${eqKey}|D:${fecha}`;
+}
+function buildCompareLocalKeys() {
+  const set = new Set();
+  for (const r of filteredOTsCmp.value) set.add(signatureFromRow(r));
+  comparar.keysLocal = set;
+}
+function rebuildCompareRemoteKeys() {
+  const set = new Set();
+  for (const r of remoteOTs.value) set.add(signatureFromRow(r));
+  comparar.keysRemote = set;
+}
+
 /* ===== Carga Firestore (ver publicado) ===== */
 async function refreshRemote() {
   try {
@@ -386,7 +667,7 @@ async function refreshRemote() {
       getDocs(collection(db, FIRE_COL_LEC)),
     ]);
 
-    // OTs
+    // OTs publicadas
     const mappedOTs = [];
     snapOT.forEach(d => {
       const r = d.data() || {};
@@ -417,7 +698,7 @@ async function refreshRemote() {
     });
     remoteOTs.value = mappedOTs.filter(r => r.dias_abiertas >= OTS_MIN_DIAS);
 
-    // Lecturas (para modal)
+    // Lecturas (modal)
     const allLEC = [];
     snapLEC.forEach(d => {
       const l = d.data() || {};
@@ -433,13 +714,14 @@ async function refreshRemote() {
     remoteLecturasAll.value = allLEC;
 
     sync.loading = false; sync.msg = "Firestore cargado.";
+    rebuildCompareRemoteKeys();
   } catch (e) {
     sync.loading = false; sync.error = true; sync.msg = `Error: ${e?.message || e}`;
     console.error(e);
   }
 }
 
-/* ===== Vista ===== */
+/* ===== Vista principal ===== */
 const viewOTs = computed(() => (fuente.value === "firestore" ? remoteOTs.value : filteredOTsLocal.value));
 const gruposOTsPorContrato = computed(() => {
   const map = new Map();
@@ -450,6 +732,35 @@ const gruposOTsPorContrato = computed(() => {
   }
   return Array.from(map.values()).sort((a, b) => String(a.nombre || "").localeCompare(String(b.nombre || "")));
 });
+
+/* ===== Vista comparativa (lado derecho) ===== */
+const compareView = computed(() => {
+  // Si estoy viendo Publica, comparo con archivo de comparación (local aparte).
+  // Si estoy viendo Local, comparo con Publicada (remoteOTs).
+  return fuente.value === 'firestore' ? filteredOTsCmp.value : remoteOTs.value;
+});
+const gruposComparePorContrato = computed(() => {
+  const map = new Map();
+  for (const r of compareView.value) {
+    const key = r.contratoId || "__sin__";
+    const nombre = r.contratoNombre || null;
+    if (!map.has(key)) map.set(key, { key, nombre, items: [] });
+    map.get(key).items.push(r);
+  }
+  return Array.from(map.values()).sort((a, b) => String(a.nombre || "").localeCompare(String(b.nombre || "")));
+});
+
+/* ===== Duplicados (badges) ===== */
+function isDuplicate(r) {
+  if (!comparar.enabled) return false;
+  const sig = signatureFromRow(r);
+  return fuente.value === 'firestore' ? comparar.keysLocal.has(sig) : comparar.keysRemote.has(sig);
+}
+function isDuplicateInverse(r) {
+  if (!comparar.enabled) return false;
+  const sig = signatureFromRow(r);
+  return fuente.value === 'firestore' ? comparar.keysRemote.has(sig) : comparar.keysLocal.has(sig);
+}
 
 /* ===== Modal ===== */
 function equipoStrongKeyFromRowText(texto) {
@@ -497,7 +808,12 @@ function clearOTs() {
   try { localStorage.removeItem("gestor_ot_rows_v9"); } catch (e) { console.error(e); }
 }
 
-/* ===== Firestore push ===== */
+/* ===== Utilidades de claves ===== */
+function equipoKeyFromRow(r) {
+  return r?.eq ? (plateKey(r.eq.patente) || plateKey(r.eq.equipo_text)) : equipoStrongKeyFromRowText(r?.equipo_inmueble || '');
+}
+
+/* ===== Publicación Firestore (usa batchedUpsert) ===== */
 async function batchedUpsert(colName, docs, replace=false) {
   sync.loading = true; sync.error = false; sync.msg = `Preparando ${docs.length} docs…`;
   let currentIds = new Set();
@@ -531,11 +847,10 @@ async function batchedUpsert(colName, docs, replace=false) {
   if (fuente.value === "firestore") await refreshRemote();
 }
 
-function equipoKeyFromRow(r) {
-  return r.eq ? (plateKey(r.eq.patente) || plateKey(r.eq.equipo_text)) : equipoStrongKeyFromRowText(r.equipo_inmueble);
-}
 async function pushOTs(replace=false) {
-  const docs = (fuente.value === "firestore" ? remoteOTs.value : filteredOTsLocal.value).map(r => {
+  // SIEMPRE publica lo que tienes en "Local de trabajo" (filteredOTsLocal)
+  // (Así puedes subir otro documento y reemplazar lo publicado con replace=true)
+  const docs = filteredOTsLocal.value.map(r => {
     const equipoKey = equipoKeyFromRow(r);
     const id = (r.folio_ot && r.folio_ot.length >= 1)
       ? toKeyNoDash(r.folio_ot)
@@ -562,6 +877,7 @@ async function pushOTs(replace=false) {
       }
     };
   });
+
   await batchedUpsert(FIRE_COL_OTS, docs, replace);
 }
 </script>

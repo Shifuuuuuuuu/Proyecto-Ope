@@ -13,7 +13,7 @@
 
       <h1 class="h4 fw-semibold mb-0">Cambio de Aceite · Motor</h1>
 
-      <div class="d-flex flex-wrap gap-2 align-items-center">
+      <div class="d-flex flex-wrap gap-3 align-items-center">
         <div class="d-flex align-items-center gap-2">
           <label class="form-label mb-0 small text-muted">Fuente:</label>
           <select v-model="fuente" class="form-select form-select-sm" style="width: 190px">
@@ -28,80 +28,269 @@
             <i class="bi bi-arrow-clockwise"></i> Refrescar
           </button>
         </div>
+
+        <!-- Toggle comparar -->
+        <div class="form-check form-switch d-flex align-items-center gap-2">
+          <input class="form-check-input" type="checkbox" id="chkComparar" v-model="comparar.enabled">
+          <label class="form-check-label small text-muted" for="chkComparar">
+            Comparar con archivo
+          </label>
+        </div>
+
         <span class="badge bg-warning text-dark">
           Cambio aceite motor &gt;{{ ACEITE_MIN_ATRASO }}: {{ viewAceite.length }}
         </span>
       </div>
     </div>
 
+    <!-- Ayuda para comparación -->
+    <div
+      v-if="comparar.enabled"
+      class="alert alert-light d-flex align-items-center justify-content-between py-2 px-3 border"
+    >
+      <div class="small">
+        <i class="bi bi-info-circle me-2"></i>
+        Vista: <strong>{{ fuente === 'firestore' ? 'Publica' : 'Local' }}</strong>.
+        Se marcarán como <strong>Repetido</strong> si el registro existe también en
+        <strong>{{ fuente === 'firestore' ? 'Archivo comparación (derecha)' : 'Publicado (izquierda)' }}</strong>.
+      </div>
+      <label
+        class="btn btn-sm btn-outline-secondary mb-0"
+        title="Subir archivo para comparar"
+      >
+        <i class="bi bi-upload"></i> Archivo de comparación
+        <input type="file" accept=".xlsx,.xls,.csv" class="d-none" @change="onFileChangeCmp">
+      </label>
+    </div>
+
     <!-- CONTENIDO: solo cuando NO está cargando -->
     <div v-if="!sync.loading" class="col-12">
-      <div v-for="grupo in gruposPorContrato" :key="grupo.key" class="mb-4">
-        <div class="d-flex align-items-center justify-content-between mb-2">
-          <h5 class="mb-0">
-            Contrato:
-            <span class="fw-semibold">{{ grupo.nombre || 'Sin contrato' }}</span>
-            <span
-              class="badge ms-2"
-              :class="grupo.key==='__sin__' ? 'bg-warning text-dark' : 'bg-secondary'"
-            >
-              {{ grupo.items.length }}
-            </span>
-          </h5>
-        </div>
-
-        <div
-          class="table-responsive border rounded excel-area"
-          :class="{ dense: ui.density==='compacto', mobile: isMobile }"
-          :style="{ '--excel-font-scale': ui.fontScale }"
-        >
-          <table class="table table-hover align-middle mb-0">
-            <thead class="table-light sticky-head">
-              <tr>
-                <th class="text-nowrap">Equipo</th>
-                <th class="text-nowrap">Tipo</th>
-                <th class="text-nowrap">Localización</th>
-                <th class="text-nowrap text-end pe-3">Días atraso</th>
-              </tr>
-            </thead>
-            <tbody v-if="grupo.items.length">
-              <tr
-                v-for="(r, idx) in grupo.items"
-                :key="idx"
-                class="row-click"
-                @click="openDetail(r)"
+      <!-- Modo normal (una tabla) -->
+      <template v-if="!comparar.enabled">
+        <div v-for="grupo in gruposPorContrato" :key="grupo.key" class="mb-4">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <h5 class="mb-0">
+              Contrato:
+              <span class="fw-semibold">{{ grupo.nombre || 'Sin contrato' }}</span>
+              <span
+                class="badge ms-2"
+                :class="grupo.key==='__sin__' ? 'bg-warning text-dark' : 'bg-secondary'"
               >
-                <td class="text-truncate" style="max-width: 340px" :title="r.eq ? equipoTitle(r.eq) : r.equipo">
-                  <template v-if="r.eq">{{ equipoLabel(r.eq) }}</template>
-                  <template v-else>
-                    {{ r.equipo || '—' }}
-                    <span class="badge bg-warning text-dark ms-1">Falta agregar equipo</span>
-                  </template>
-                </td>
-                <td class="text-nowrap">{{ r.tipo || '—' }}</td>
-                <td class="text-truncate" style="max-width: 260px" :title="r.localizacion">
-                  {{ r.localizacion || '—' }}
-                </td>
-                <td class="text-end pe-3 fw-bold" :class="r.atraso_dias>0 ? 'text-danger' : 'text-success'">
-                  {{ r.atraso_dias }} d
-                </td>
-              </tr>
-            </tbody>
-            <tbody v-else>
-              <tr>
-                <td colspan="7" class="text-center text-muted py-4">
-                  Sin equipos con atraso &gt; {{ ACEITE_MIN_ATRASO }} días
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+                {{ grupo.items.length }}
+              </span>
+            </h5>
+          </div>
 
-      <!-- ALERTA cuando no hay resultados (luego de cargar) -->
-      <div v-if="!gruposPorContrato.length" class="alert alert-secondary mt-5">
-        No hay pendientes de cambio de aceite con atraso &gt; {{ ACEITE_MIN_ATRASO }} días.
-      </div>
+          <div
+            class="table-responsive border rounded excel-area"
+            :class="{ dense: ui.density==='compacto', mobile: isMobile }"
+            :style="{ '--excel-font-scale': ui.fontScale }"
+          >
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light sticky-head">
+                <tr>
+                  <th class="text-nowrap">Equipo</th>
+                  <th class="text-nowrap">Tipo</th>
+                  <th class="text-nowrap">Localización</th>
+                  <th class="text-nowrap text-end pe-3">Días atraso</th>
+                </tr>
+              </thead>
+              <tbody v-if="grupo.items.length">
+                <tr
+                  v-for="(r, idx) in grupo.items"
+                  :key="idx"
+                  class="row-click"
+                  @click="openDetail(r)"
+                >
+                  <td class="text-truncate" style="max-width: 340px" :title="r.eq ? equipoTitle(r.eq) : r.equipo">
+                    <template v-if="r.eq">{{ equipoLabel(r.eq) }}</template>
+                    <template v-else>
+                      {{ r.equipo || '—' }}
+                      <span class="badge bg-warning text-dark ms-1">Falta agregar equipo</span>
+                    </template>
+                    <span
+                      v-if="comparar.enabled && isDuplicate(r)"
+                      class="ms-2 badge bg-warning text-dark"
+                      :title="fuente==='firestore' ? 'También existe en Local (archivo comparación)' : 'También existe en Publicado (Firestore)'"
+                    >
+                      Repetido
+                    </span>
+                  </td>
+                  <td class="text-nowrap">{{ r.tipo || '—' }}</td>
+                  <td class="text-truncate" style="max-width: 260px" :title="r.localizacion">
+                    {{ r.localizacion || '—' }}
+                  </td>
+                  <td class="text-end pe-3 fw-bold" :class="r.atraso_dias>0 ? 'text-danger' : 'text-success'">
+                    {{ r.atraso_dias }} d
+                  </td>
+                </tr>
+              </tbody>
+              <tbody v-else>
+                <tr>
+                  <td colspan="7" class="text-center text-muted py-4">
+                    Sin equipos con atraso &gt; {{ ACEITE_MIN_ATRASO }} días
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div v-if="!gruposPorContrato.length" class="alert alert-secondary mt-5">
+          No hay pendientes de cambio de aceite con atraso &gt; {{ ACEITE_MIN_ATRASO }} días.
+        </div>
+      </template>
+
+      <!-- Modo comparativa (dos tablas) -->
+      <template v-else>
+        <div class="row g-3">
+          <!-- Izquierda: fuente principal -->
+          <div class="col-12 col-xl-6">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <h5 class="mb-0">
+                {{ fuente==='firestore' ? 'Publicada (Firestore)' : 'Local de trabajo' }}
+                <span class="badge text-bg-secondary ms-2">{{ viewAceite.length }}</span>
+              </h5>
+            </div>
+
+            <div v-for="grupo in gruposPorContrato" :key="'L-'+grupo.key" class="mb-4">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <h6 class="mb-0">
+                  Contrato:
+                  <span class="fw-semibold">{{ grupo.nombre || 'Sin contrato' }}</span>
+                  <span class="badge text-bg-light ms-2">{{ grupo.items.length }}</span>
+                </h6>
+              </div>
+
+              <div
+                class="table-responsive border rounded excel-area"
+                :class="{ dense: ui.density==='compacto', mobile: isMobile }"
+                :style="{ '--excel-font-scale': ui.fontScale }"
+              >
+                <table class="table table-hover align-middle mb-0">
+                  <thead class="table-light sticky-head">
+                    <tr>
+                      <th class="text-nowrap">Equipo</th>
+                      <th class="text-nowrap">Tipo</th>
+                      <th class="text-nowrap">Localización</th>
+                      <th class="text-nowrap text-end pe-3">Días atraso</th>
+                    </tr>
+                  </thead>
+                  <tbody v-if="grupo.items.length">
+                    <tr
+                      v-for="(r, idx) in grupo.items"
+                      :key="'LI-'+idx"
+                      class="row-click"
+                      @click="openDetail(r)"
+                    >
+                      <td class="text-truncate" style="max-width: 340px" :title="r.eq ? equipoTitle(r.eq) : r.equipo">
+                        <template v-if="r.eq">{{ equipoLabel(r.eq) }}</template>
+                        <template v-else>
+                          {{ r.equipo || '—' }}
+                          <span class="badge bg-warning text-dark ms-1">Falta agregar equipo</span>
+                        </template>
+                        <span v-if="isDuplicate(r)" class="ms-2 badge bg-warning text-dark">Repetido</span>
+                      </td>
+                      <td class="text-nowrap">{{ r.tipo || '—' }}</td>
+                      <td class="text-truncate" style="max-width: 260px" :title="r.localizacion">
+                        {{ r.localizacion || '—' }}
+                      </td>
+                      <td class="text-end pe-3 fw-bold" :class="r.atraso_dias>0 ? 'text-danger' : 'text-success'">
+                        {{ r.atraso_dias }} d
+                      </td>
+                    </tr>
+                  </tbody>
+                  <tbody v-else>
+                    <tr>
+                      <td colspan="7" class="text-center text-muted py-4">
+                        Sin equipos con atraso &gt; {{ ACEITE_MIN_ATRASO }} días
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div v-if="!gruposPorContrato.length" class="alert alert-secondary">
+              No hay pendientes de cambio de aceite con atraso &gt; {{ ACEITE_MIN_ATRASO }} días.
+            </div>
+          </div>
+
+          <!-- Derecha: “el otro lado” de la comparación -->
+          <div class="col-12 col-xl-6">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <h5 class="mb-0">
+                {{ fuente==='firestore' ? 'Archivo comparación (Local)' : 'Publicada (Firestore)' }}
+                <span class="badge text-bg-secondary ms-2">{{ compareView.length }}</span>
+              </h5>
+              <small class="text-muted" v-if="fuente==='firestore'">
+                Cárgalo en panel o arriba (botón “Archivo de comparación”)
+              </small>
+            </div>
+
+            <div v-for="grupo in gruposComparePorContrato" :key="'R-'+grupo.key" class="mb-4">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <h6 class="mb-0">
+                  Contrato:
+                  <span class="fw-semibold">{{ grupo.nombre || 'Sin contrato' }}</span>
+                  <span class="badge text-bg-light ms-2">{{ grupo.items.length }}</span>
+                </h6>
+              </div>
+
+              <div
+                class="table-responsive border rounded excel-area"
+                :class="{ dense: ui.density==='compacto', mobile: isMobile }"
+                :style="{ '--excel-font-scale': ui.fontScale }"
+              >
+                <table class="table table-hover align-middle mb-0">
+                  <thead class="table-light sticky-head">
+                    <tr>
+                      <th class="text-nowrap">Equipo</th>
+                      <th class="text-nowrap">Tipo</th>
+                      <th class="text-nowrap">Localización</th>
+                      <th class="text-nowrap text-end pe-3">Días atraso</th>
+                    </tr>
+                  </thead>
+                  <tbody v-if="grupo.items.length">
+                    <tr
+                      v-for="(r, idx) in grupo.items"
+                      :key="'RI-'+idx"
+                      class="row-click"
+                    >
+                      <td class="text-truncate" style="max-width: 340px" :title="r.eq ? equipoTitle(r.eq) : r.equipo">
+                        <template v-if="r.eq">{{ equipoLabel(r.eq) }}</template>
+                        <template v-else>
+                          {{ r.equipo || '—' }}
+                          <span class="badge bg-warning text-dark ms-1">Falta agregar equipo</span>
+                        </template>
+                        <span v-if="isDuplicateInverse(r)" class="ms-2 badge bg-warning text-dark">Repetido</span>
+                      </td>
+                      <td class="text-nowrap">{{ r.tipo || '—' }}</td>
+                      <td class="text-truncate" style="max-width: 260px" :title="r.localizacion">
+                        {{ r.localizacion || '—' }}
+                      </td>
+                      <td class="text-end pe-3 fw-bold" :class="r.atraso_dias>0 ? 'text-danger' : 'text-success'">
+                        {{ r.atraso_dias }} d
+                      </td>
+                    </tr>
+                  </tbody>
+                  <tbody v-else>
+                    <tr>
+                      <td colspan="7" class="text-center text-muted py-4">
+                        Sin equipos para comparar
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div v-if="!gruposComparePorContrato.length" class="alert alert-secondary">
+              No hay equipos para comparar.
+            </div>
+          </div>
+        </div>
+      </template>
     </div>
 
     <!-- OVERLAY DE CARGA (spinner) -->
@@ -163,6 +352,26 @@
           <label class="btn btn-outline-secondary w-100 mb-2">
             <i class="bi bi-upload"></i> Subir archivo
             <input type="file" accept=".xlsx,.xls,.csv" class="d-none" @change="onFileChangeAceite" />
+          </label>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="chkClearOnUpload" v-model="ui.clearOnUpload">
+            <label class="form-check-label" for="chkClearOnUpload">Limpiar local al subir</label>
+          </div>
+        </div>
+
+        <!-- Carga archivo de comparación -->
+        <div class="mb-3">
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="chkCompararPanel" v-model="comparar.enabled">
+            <label class="form-check-label" for="chkCompararPanel">Activar comparación</label>
+          </div>
+          <label class="form-label fw-semibold d-flex align-items-center gap-2">
+            Archivo de comparación (Local)
+            <span class="badge text-bg-light">Solo comparar; no se publica</span>
+          </label>
+          <label class="btn btn-outline-secondary w-100 mb-1">
+            <i class="bi bi-upload"></i> Subir archivo de comparación
+            <input type="file" accept=".xlsx,.xls,.csv" class="d-none" @change="onFileChangeCmp" />
           </label>
         </div>
 
@@ -268,10 +477,18 @@ import {
 } from "@/services/useGestorShared";
 
 /** ===== UI & estado ===== **/
-const ui = reactive({ fontScale: 0.85, density: "compacto" });
+const ui = reactive({ fontScale: 0.85, density: "compacto", clearOnUpload: true });
 const uiPanelAbierto = ref(false);
 const sync = reactive({ loading: false, msg: "", error: false });
 const fuente = ref("firestore");
+
+/** Comparación **/
+const comparar = reactive({
+  enabled: false,
+  rows: [],             // archivo de comparación (local)
+  keysLocal: new Set(), // firmas construidas desde archivo comparación
+  keysRemote: new Set() // firmas construidas desde publicado (aceiteRemote)
+});
 
 /** Responsive flag **/
 const isMobile = ref(false);
@@ -299,31 +516,17 @@ onMounted(async () => {
   } catch(e) { console.error(e); }
   await loadCatalogos();
   await refreshRemote();
+  rebuildCompareRemoteKeys();
 });
 onBeforeUnmount(() => window.removeEventListener("resize", updateIsMobile));
 
 /* ===== Persistencia local ===== */
 watch(aceiteLocal, v => {
   try { localStorage.setItem("gestor_aceite_v1", JSON.stringify(v||[])); } catch(e) { console.error(e); }
+  buildCompareLocalKeys(); // útil cuando comparo remoto vs archivo
 }, {deep:true});
 
-/* ===== Subida local ===== */
-async function onFileChangeAceite(e) {
-  const file = e.target.files?.[0]; if (!file) return;
-  const data = await file.arrayBuffer();
-  const wb = XLSX.read(data, { type: "array" });
-  const rows = parseAceiteFileToRows(wb);
-  // Enriquecer con equipo/contrato
-  aceiteLocal.value = rows.map(r => {
-    const eq = matchEquipoPorTexto(r.equipo);
-    let contrato = null;
-    if (eq?.contratoId) contrato = contratos.value.find(c => c.id === eq.contratoId) || null;
-    return { ...r, eq, contratoId: contrato?.id || null, contratoNombre: contrato?.nombre || null };
-  });
-  e.target.value = "";
-}
-
-/* ===== Match por equipo ===== */
+/* ===== Util: matching equipo por texto ===== */
 function matchEquipoPorTexto(txt) {
   const s = String(txt || "");
   const pk = plateKey(s);
@@ -333,6 +536,88 @@ function matchEquipoPorTexto(txt) {
   const k2 = toKeyNoDash(k);
   if (idxEqByKey.value?.has?.(k2)) return idxEqByKey.value.get(k2);
   return null;
+}
+
+/* ===== Subida local (principal) ===== */
+function clearAceiteSilently(){
+  aceiteLocal.value = [];
+  try { localStorage.removeItem("gestor_aceite_v1"); } catch(e) { console.error(e); }
+}
+async function onFileChangeAceite(e) {
+  const file = e.target.files?.[0]; e.target.value = "";
+  if (!file) return;
+
+  try {
+    sync.loading = true; sync.msg = 'Leyendo archivo…'; sync.error = false;
+
+    if (ui.clearOnUpload) clearAceiteSilently();
+
+    const data = await file.arrayBuffer();
+    const wb = XLSX.read(data, { type: "array" });
+    const rows = parseAceiteFileToRows(wb);
+
+    // Enriquecer con equipo/contrato
+    aceiteLocal.value = rows.map(r => {
+      const eq = matchEquipoPorTexto(r.equipo);
+      let contrato = null;
+      if (eq?.contratoId) contrato = contratos.value.find(c => c.id === eq.contratoId) || null;
+      return { ...r, eq, contratoId: contrato?.id || null, contratoNombre: contrato?.nombre || null };
+    });
+
+    fuente.value = 'local';
+    sync.loading = false; sync.msg = `OK: ${aceiteLocal.value.length} fila(s) leídas.`;
+  } catch (err) {
+    console.error(err);
+    sync.loading = false; sync.error = true;
+    sync.msg = `Error al leer: ${err?.message || err}`;
+    alert(sync.msg);
+  }
+}
+
+/* ===== Archivo de comparación (LOCAL aparte) ===== */
+async function onFileChangeCmp(e) {
+  const file = e.target.files?.[0]; e.target.value = "";
+  if (!file) return;
+
+  try {
+    const data = await file.arrayBuffer();
+    const wb = XLSX.read(data, { type: "array" });
+    const rows = parseAceiteFileToRows(wb);
+
+    // Enriquecer
+    comparar.rows = rows.map(r => {
+      const eq = matchEquipoPorTexto(r.equipo);
+      let contrato = null;
+      if (eq?.contratoId) contrato = contratos.value.find(c => c.id === eq.contratoId) || null;
+      return { ...r, eq, contratoId: contrato?.id || null, contratoNombre: contrato?.nombre || null };
+    });
+
+    buildCompareLocalKeys();
+  } catch (err) {
+    console.error(err);
+    alert(`Error al leer archivo comparación: ${err?.message || err}`);
+  }
+}
+
+/* ===== Firma / duplicados ===== */
+function equipoKeyFromRow(r){
+  return r?.eq ? (plateKey(r.eq.patente) || plateKey(r.eq.equipo_text)) : plateKey(r?.equipo || "");
+}
+function signatureFromAceite(r){
+  // Firma estable: Equipo + Tipo (normalizado)
+  const ek = equipoKeyFromRow(r) || '';
+  const tk = toKeyNoDash(toKey(String(r?.tipo || '')));
+  return `E:${ek}|T:${tk}`;
+}
+function buildCompareLocalKeys() {
+  const set = new Set();
+  for (const r of aceiteCmpFiltradas.value) set.add(signatureFromAceite(r));
+  comparar.keysLocal = set;
+}
+function rebuildCompareRemoteKeys() {
+  const set = new Set();
+  for (const r of aceiteRemoteFiltrado.value) set.add(signatureFromAceite(r));
+  comparar.keysRemote = set;
 }
 
 /* ===== Carga Firestore (ver publicado) ===== */
@@ -365,20 +650,24 @@ async function refreshRemote() {
         contratoNombre: r.contratoNombre || null,
       });
     });
-    aceiteRemote.value = rows.filter(x => Number(x.atraso_dias) > ACEITE_MIN_ATRASO);
-
+    aceiteRemote.value = rows;
     sync.loading = false; sync.msg = "Firestore cargado.";
+    rebuildCompareRemoteKeys();
   } catch (e) {
-    sync.loading = false; sync.error = true; sync.msg = `Error: ${e?.message || e}`;
-    console.error(e);
+    sync.loading = false; sync.error = true; sync.msg = `Error: ${e?.message || e}`; console.error(e);
   }
 }
 
-/* ===== Vista ===== */
+/* ===== Filtros / vistas ===== */
+const aceiteRemoteFiltrado = computed(() =>
+  (aceiteRemote.value || []).filter(x => Number(x.atraso_dias) > ACEITE_MIN_ATRASO)
+);
+const aceiteLocalFiltrado = computed(() =>
+  (aceiteLocal.value || []).filter(x => Number(x.atraso_dias) > ACEITE_MIN_ATRASO)
+);
+
 const viewAceite = computed(() =>
-  fuente.value === "firestore"
-    ? aceiteRemote.value
-    : aceiteLocal.value.filter(x => Number(x.atraso_dias) > ACEITE_MIN_ATRASO)
+  fuente.value === "firestore" ? aceiteRemoteFiltrado.value : aceiteLocalFiltrado.value
 );
 
 const gruposPorContrato = computed(() => {
@@ -388,21 +677,50 @@ const gruposPorContrato = computed(() => {
     if (!map.has(key)) map.set(key, { key, nombre: r.contratoNombre, items: [] });
     map.get(key).items.push(r);
   }
-  return Array.from(map.values()).sort((a, b) =>
-    String(a.nombre || "").localeCompare(String(b.nombre || ""))
-  );
+  return Array.from(map.values()).sort((a, b) => String(a.nombre || "").localeCompare(String(b.nombre || "")));
 });
+
+/* ===== Comparativa: vistas ===== */
+const aceiteCmpFiltradas = computed(() =>
+  (comparar.rows || []).filter(x => Number(x.atraso_dias) > ACEITE_MIN_ATRASO)
+);
+
+const compareView = computed(() => {
+  // Si estoy viendo Publica, comparo con archivo de comparación; si estoy en Local, comparo con Publicada
+  return fuente.value === 'firestore' ? aceiteCmpFiltradas.value : aceiteRemoteFiltrado.value;
+});
+
+const gruposComparePorContrato = computed(() => {
+  const map = new Map();
+  for (const r of compareView.value) {
+    const key = r.contratoId || "__sin__";
+    if (!map.has(key)) map.set(key, { key, nombre: r.contratoNombre || null, items: [] });
+    map.get(key).items.push(r);
+  }
+  return Array.from(map.values()).sort((a, b) => String(a.nombre || "").localeCompare(String(b.nombre || "")));
+});
+
+/* ===== Duplicados (badges) ===== */
+function isDuplicate(r) {
+  if (!comparar.enabled) return false;
+  const sig = signatureFromAceite(r);
+  return fuente.value === 'firestore' ? comparar.keysLocal.has(sig) : comparar.keysRemote.has(sig);
+}
+function isDuplicateInverse(r) {
+  if (!comparar.enabled) return false;
+  const sig = signatureFromAceite(r);
+  return fuente.value === 'firestore' ? comparar.keysRemote.has(sig) : comparar.keysLocal.has(sig);
+}
 
 /* ===== Modal ===== */
 function openDetail(item) { detail.item = item; detail.open = true; document.body.style.overflow = "hidden"; }
 function closeDetail() { detail.open = false; detail.item = null; document.body.style.overflow = ""; }
 
-/* ===== Limpieza local ===== */
+/* ===== Limpieza local (manual) ===== */
 function confirmAction(msg){ try { return window.confirm(msg); } catch { return true; } }
 function clearAceite(){
   if (!confirmAction("¿Borrar datos locales de Aceite?")) return;
-  aceiteLocal.value = [];
-  try { localStorage.removeItem("gestor_aceite_v1"); } catch(e) { console.error(e); }
+  clearAceiteSilently();
 }
 
 /* ===== Publicación a Firestore ===== */
@@ -439,19 +757,13 @@ async function batchedUpsert(colName, docs, replace=false) {
   if (fuente.value === "firestore") await refreshRemote();
 }
 
-/* Genera un id reproducible por equipo */
-function equipoKeyFromRow(r){
-  return r.eq ? (plateKey(r.eq.patente) || plateKey(r.eq.equipo_text)) : plateKey(r.equipo || "");
-}
+/* Genera un id reproducible por equipo + tipo */
 async function pushAceite(replace=false) {
-  const source = (fuente.value === "firestore"
-    ? viewAceite.value
-    : aceiteLocal.value.filter(x => x.atraso_dias > ACEITE_MIN_ATRASO)
-  );
+  const source = (fuente.value === "firestore" ? viewAceite.value : aceiteLocalFiltrado.value);
   const docs = source.map(r => {
     const equipoKey = equipoKeyFromRow(r) || 's/eq';
-    // Si tienes una fecha de referencia, úsala. Aquí usamos el atraso como parte del id.
-    const id = `${equipoKey}_oil_${r.atraso_dias}`;
+    const tipoKey = toKeyNoDash(toKey(String(r?.tipo || 'tipo')));
+    const id = `${equipoKey}_oil_${tipoKey}`; // estable: equipo+tipo
     return {
       id,
       data: {
