@@ -17,10 +17,10 @@
           v-if="showAlert && contratosAtrasados.length"
           class="alert alert-danger border-0 shadow-sm mb-4"
         >
-          <div class="d-flex align-items-start justify-content-between gap-3">
-            <div class="d-flex align-items-start gap-3">
+          <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
+            <div class="d-flex align-items-start gap-3 flex-grow-1">
               <i class="bi bi-exclamation-triangle-fill fs-3"></i>
-              <div>
+              <div class="min-w-0">
                 <h5 class="mb-1">Atención: inactividad detectada</h5>
                 <p class="mb-2">
                   Los siguientes contratos no tienen registros en las <strong>últimas 48 horas</strong>.
@@ -31,7 +31,9 @@
                 <ul class="list-unstyled mb-0">
                   <li v-for="c in contratosAtrasados" :key="c.id" class="mb-2">
                     <div class="d-flex flex-wrap align-items-center gap-2">
-                      <span class="badge text-bg-light border" :title="c.nombre">{{ c.nombre }}</span>
+                      <span class="badge text-bg-light border text-truncate" :title="c.nombre" style="max-width: 60ch;">
+                        {{ c.nombre }}
+                      </span>
                       <span class="small text-muted">
                         Último registro: <strong>{{ c._lastText }}</strong>
                       </span>
@@ -65,7 +67,7 @@
       </transition>
 
       <div v-if="mostrarInstrucciones" class="alert alert-warning border">
-        <div class="d-flex justify-content-between align-items-start">
+        <div class="d-flex justify-content-between align-items-start gap-2">
           <div>
             <strong class="text-danger">📌 Instrucciones:</strong>
             <ul class="mb-0 small">
@@ -74,7 +76,7 @@
               <li><strong>M</strong>: Mantención</li>
             </ul>
           </div>
-          <button class="btn-close" @click="mostrarInstrucciones = false"></button>
+          <button class="btn-close ms-auto" @click="mostrarInstrucciones = false"></button>
         </div>
       </div>
 
@@ -151,12 +153,7 @@
                     <div class="switches">
                       <div class="form-check form-switch me-2">
                         <input class="form-check-input" type="checkbox" v-model="modoAcciones" :id="`swHist-${contrato.id}`">
-                        <label class="form-check-label d-none d-md-inline" :for="`swHist-${contrato.id}`">Historial de Cambios</label>
-                      </div>
-
-                      <div class="form-check form-switch me-2">
-                        <input class="form-check-input" type="checkbox" v-model="autoAvance" :id="`swAuto-${contrato.id}`">
-                        <label class="form-check-label d-none d-md-inline" :for="`swAuto-${contrato.id}`">Auto-avance</label>
+                        <label class="form-check-label d-none d-md-inline" :for="`swHist-${contrato.id}`">Historial</label>
                       </div>
 
                       <!-- Selección múltiple -->
@@ -168,25 +165,22 @@
 
                     <div class="actions-toolbar">
                       <button class="btn btn-outline-secondary" @click="toggleZoomTabla">
-                        <i :class="zoomTabla ? 'bi bi-zoom-in' : 'bi bi-zoom-out'"></i>
+                        <i :class="zoomTabla ? 'bi bi-zoom-in' : 'bi bi-zoom-out'"
+                        title="Cambiar zoom de tabla"></i>
                       </button>
 
                       <button class="btn btn-outline-primary"
                               @click="toggleExpand(contrato.id)"
-                              :disabled="loadingContrato[contrato.id]">
+                              :disabled="loadingContrato[contrato.id]"
+                              title="Mostrar/Ocultar detalle del contrato">
                         <i :class="expandedContrato === contrato.id ? 'bi bi-eye-slash-fill' : 'bi bi-eye-fill'"></i>
-                        <span class="d-none d-sm-inline ms-1">
-                          {{ expandedContrato === contrato.id ? 'Ocultar Equipos' : 'Ver Equipos' }}
-                        </span>
                       </button>
 
                       <button class="btn btn-outline-primary"
                               @click="toggleMes(contrato.id)"
-                              :disabled="loadingContrato[contrato.id]">
+                              :disabled="loadingContrato[contrato.id]"
+                              title="Navegar entre meses">
                         <i class="bi" :class="mesOffset === 0 ? 'bi-arrow-left-circle' : 'bi-arrow-right-circle'"></i>
-                        <span class="d-none d-sm-inline ms-1">
-                          {{ mesOffset === 0 ? 'Ir a MES PASADO' : 'Volver a MES ACTUAL' }}
-                        </span>
                       </button>
 
                       <button class="btn btn-outline-success"
@@ -194,16 +188,13 @@
                               :disabled="descargandoExcel || !canDescargarExcel || loadingContrato[contrato.id]"
                               :title="!canDescargarExcel ? 'Tu rol no permite descargar Excel' : (descargandoExcel ? 'Generando…' : 'Descargar Excel')">
                         <i class="bi" :class="descargandoExcel ? 'bi-hourglass-split' : 'bi-download'"></i>
-                        <span class="d-none d-sm-inline ms-1">
-                          {{ descargandoExcel ? 'Generando…' : 'Descargar Excel' }}
-                        </span>
                       </button>
 
                       <button class="btn btn-outline-dark"
                               @click="$router.push({ name:'ContratoStats', params:{ contratoId: contrato.id }})"
-                              :disabled="loadingContrato[contrato.id]">
+                              :disabled="loadingContrato[contrato.id]"
+                              title="Ver estadísticas de operatividad del contrato">
                         <i class="bi bi-bar-chart"></i>
-                        <span class="d-none d-sm-inline ms-1">Estadísticas</span>
                       </button>
 
                       <button class="btn btn-outline-danger"
@@ -211,18 +202,17 @@
                               :disabled="loadingContrato[contrato.id]"
                               title="Cargar y ver OTs de equipos en Falla o Mantención">
                         <i class="bi bi-file-earmark-text"></i>
-                        <span class="d-none d-sm-inline ms-1">OTs</span>
                       </button>
                     </div>
                   </div>
                 </div>
 
                 <!-- Barra de acciones por selección -->
-                <div v-if="expandedContrato === contrato.id && selectedCellsCount > 0" class="alert alert-dark d-flex align-items-center justify-content-between gap-2 mb-2 py-2 px-3">
+                <div v-if="expandedContrato === contrato.id && selectedCellsCount > 0" class="alert alert-dark d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2 py-2 px-3">
                   <div class="d-flex align-items-center gap-3">
                     <strong class="me-1">Seleccionadas:</strong>
                     <span class="badge text-bg-secondary">{{ selectedCellsCount }}</span>
-                    <span class="text-muted small">({{ selectionContratoNombre }})</span>
+                    <span class="text-muted small text-truncate">({{ selectionContratoNombre }})</span>
                   </div>
 
                   <div class="d-flex align-items-center gap-2 flex-wrap">
@@ -258,7 +248,7 @@
                     <template v-for="(grupo, categoria) in equiposPorContratoYCategoria(contrato.id)" :key="categoria">
                       <div class="card mb-4 border">
                         <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                          <span>{{ categoria }}</span>
+                          <span class="text-truncate">{{ categoria }}</span>
                           <small class="text-white-50">Equipos: {{ grupo.length }}</small>
                         </div>
 
@@ -288,8 +278,8 @@
 
                               <tbody>
                                 <tr v-for="(equipo, rowIndex) in grupo" :key="equipo.id">
-                                  <td class="sticky-col col-interno" :title="equipo.nombre_equipo">{{ equipo.nombre_equipo }}</td>
-                                  <td class="sticky-col-2 col-ppu" :title="equipo.patente">{{ equipo.patente }}</td>
+                                  <td class="sticky-col col-interno text-truncate" :title="equipo.nombre_equipo">{{ equipo.nombre_equipo }}</td>
+                                  <td class="sticky-col-2 col-ppu text-truncate" :title="equipo.patente">{{ equipo.patente }}</td>
                                   <td class="sticky-col-3 col-docs text-center">
                                     <button
                                       class="btn btn-sm btn-outline-dark"
@@ -410,17 +400,17 @@
                     </div>
                     <ul v-else class="list-group">
                       <li v-for="h in historialItems" :key="h.id" class="list-group-item">
-                        <div class="d-flex justify-content-between">
-                          <div>
+                        <div class="d-flex justify-content-between gap-3">
+                          <div class="min-w-0">
                             <strong>{{ h.estado }}</strong>
                             <div class="small text-muted">
                               {{ h.jornada }} — {{ formatearFechaHora(h.fecha) }}
                             </div>
-                            <div class="small">Obs: {{ h.observaciones || '—' }}</div>
+                            <div class="small text-break">Obs: {{ h.observaciones || '—' }}</div>
                           </div>
                           <div class="text-end">
-                            <div class="small">{{ h.nombre_completo || '—' }}</div>
-                            <div class="small text-muted">{{ h.registradoPor || '' }}</div>
+                            <div class="small text-truncate" :title="h.nombre_completo || '—'">{{ h.nombre_completo || '—' }}</div>
+                            <div class="small text-muted text-truncate">{{ h.registradoPor || '' }}</div>
                             <div class="small text-muted">{{ formatearFechaHora(h.timestamp) }}</div>
                             <span class="badge bg-secondary mt-1">{{ h.accion }}</span>
                           </div>
@@ -497,15 +487,15 @@
                     </div>
 
                     <ul v-else class="list-group">
-                      <li v-for="d in docsEquipo" :key="d._id" class="list-group-item d-flex justify-content-between align-items-start">
-                        <div class="me-3">
-                          <div class="fw-semibold">{{ d.nombre }}</div>
+                      <li v-for="d in docsEquipo" :key="d._id" class="list-group-item d-flex justify-content-between align-items-start gap-3">
+                        <div class="me-3 min-w-0">
+                          <div class="fw-semibold text-truncate" :title="d.nombre">{{ d.nombre }}</div>
                           <div class="small text-muted">
                             {{ d.tipo }} · {{ (d.size/1024).toFixed(1) }} KB · {{ formatearFechaHora(d.timestamp) }}
                           </div>
                         </div>
 
-                        <div class="d-flex gap-2">
+                        <div class="d-flex gap-2 flex-wrap">
                           <!-- Ver IMAGEN -->
                           <button
                             v-if="esImagen(d.tipo, d.nombre)"
@@ -528,7 +518,7 @@
 
                           <a
                             class="btn btn-sm btn-outline-secondary"
-                            :href="`data:${d.tipo};base64,${d.base64}`"
+                            :href="`data:${normalizaMime(d.tipo, d.nombre)};base64,${d.base64}`"
                             :download="d.nombre"
                             title="Descargar"
                           >
@@ -688,7 +678,7 @@ import { ref, onMounted, onUnmounted, computed, defineOptions, nextTick, watch }
 import { db } from '../firebase/config'
 import {
   collection, getDocs, setDoc, doc, getDoc, addDoc, deleteDoc,
-  query, where, orderBy, limit, serverTimestamp
+  query, where, orderBy, limit
 } from 'firebase/firestore'
 
 import { getAuth, onAuthStateChanged } from 'firebase/auth'
@@ -852,7 +842,7 @@ async function onFilesSelected(e) {
         tipo: file.type || 'application/octet-stream',
         size: file.size,
         base64,
-        timestamp: serverTimestamp(),
+        timestamp: new Date(),
         usuario
       }
       await addDoc(collection(db, 'equipos', docMeta.value.equipoId, 'documentos'), payload)
@@ -910,7 +900,6 @@ const contratosUsuario = ref([])
 const auth = getAuth()
 const isVisualizador = computed(() => (rolUsuario.value || '').toLowerCase() === 'visualizador')
 const modoAcciones = ref(false)
-const autoAvance = ref(false)
 const tablaClaseModo = computed(() => modoAcciones.value ? 'modo-acciones' : '')
 const zoomTabla = ref(false)
 function toggleZoomTabla() { zoomTabla.value = !zoomTabla.value }
@@ -1019,12 +1008,15 @@ const contratosUsuarioValidos = computed(() =>
 )
 const emojiContrato = (nombreContrato) => {
   const nombre = (nombreContrato || '').toLowerCase()
-  if (nombre.includes('urbanos olivar') || nombre.includes('san bernardo')) return '🏙️'
+  if (nombre.includes('olivar') || nombre.includes('san bernardo')) return '🏙️'
   if (nombre.includes('hormigon') || nombre.includes('hormigón')) return '🧱'
   if (nombre.includes('carpetas')) return '🛣️'
   if (nombre.includes('áridos') || nombre.includes('aridos')) return '⛰️'
   if (nombre.includes('reparación') || nombre.includes('infraestructura')) return '🧰'
   if (nombre.includes('chuquicamata') || nombre.includes('pmchs')) return '🏗️'
+  if (nombre.includes('casa')|| nombre.includes('matriz')) return '🏠'
+  if (nombre.includes('servicios') || nombre.includes('taller')) return '🔧'
+  if (nombre.includes('alto') || nombre.includes('maipo')) return '⛰️'
   return '📁'
 }
 const formatearFechaHora = (ts) => {
@@ -1096,7 +1088,6 @@ function humanizeDiff(fecha) {
 const contratosAtrasados = computed(() => {
   const limiteHoras = 48; const ahora = new Date()
   return contratosUsuarioValidos.value
-    // NUEVO: saltar los inactivos
     .filter(c => c.activo !== false)
     .map(c => {
       const t = lastTimestampByContrato.value[c.id] ?? null
@@ -1190,16 +1181,13 @@ async function obtenerContratosDelUsuario() {
       return {
         id: d.id,
         ...data,
-        // si no existe "activo", lo tratamos como activo para compatibilidad
         activo: data.activo !== false
       }
     }))
   }
 
-  // 🔴 FILTRO CLAVE: quita los inactivos
   contratosUsuario.value = results.filter(c => c.activo !== false)
 
-  // Lo restante se mantiene igual
   for (const c of contratosUsuario.value) cargarConteoEquipos(c.id)
   await revisarInactividadContratos()
   await nextTick()
@@ -1242,17 +1230,12 @@ async function cargarContratoDetalle(contratoId, { force = false } = {}) {
         )
     }
 
-    // ⬇️⬇️ NUEVO: filtrar equipos ocultos
-    // Si usas solo una bandera (por ejemplo "oculto: true" o "visible: false"), esta línea las cubre.
-    // - e.oculto === true  -> se oculta
-    // - e.visible === false -> se oculta
-    // - e.visible_actual === false -> se oculta
+    // filtrar equipos ocultos
     equipos = equipos.filter(e =>
       e?.oculto !== true &&
       e?.visible !== false &&
       e?.visible_actual !== false
     )
-    // ⬆️⬆️ NUEVO
 
     equiposByContrato.value[contratoId] = equipos
     conteoEquipos.value[contratoId] = equipos.length
@@ -1562,6 +1545,7 @@ async function descargarExcelContrato(contrato) {
     }))
     ws['!merges'] = [...merges, ...mergesDias]
 
+    // estilos (se mantienen)
     const BORDER_THIN = { style: 'thin', color: { rgb: 'FF999999' } }
     const allBorders  = { top: BORDER_THIN, right: BORDER_THIN, bottom: BORDER_THIN, left: BORDER_THIN }
     const titleStyle = { font: { bold: true, sz: 16, color: { rgb: 'FFFFFFFF' } }, fill: { fgColor: { rgb: 'FF3B3F5C' } }, alignment: { vertical: 'center', horizontal: 'center' }, border: allBorders }
@@ -1740,7 +1724,6 @@ function onMouseUpGlobal(){
   isDraggingSelect.value = false
 }
 function onKeyDownGlobal(e){
-  // Permite alternar modo durante el arrastre con ALT
   if (e.key === 'Alt') dragAddMode.value = false
 }
 function onKeyUpGlobal(e){
@@ -1781,7 +1764,7 @@ function startTouchBrush() {
   if (rolUsuario.value === 'visualizador') return
   isDraggingSelect.value = true
   touchDragging.value = true
-  dragAddMode.value = true // en móvil, por defecto agregar
+  dragAddMode.value = true
 }
 function clearTouchTimers() {
   if (touchLongPressTimer) {
@@ -1790,7 +1773,7 @@ function clearTouchTimers() {
   }
 }
 function handleCellTouchStart(e, equipoId, jornada, dia, contratoId) {
-  if (!selectionMode.value) return // NO bloquear scroll/foco si no estamos seleccionando
+  if (!selectionMode.value) return
   e.preventDefault()
   e.stopPropagation()
   touchLongPress.value = false
@@ -1845,9 +1828,25 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* ========= Variables responsivas para sticky ========= */
+:root, :host {
+  --col-interno: 160px;
+  --col-ppu: 140px;
+}
+/* md-down */
+@media (max-width: 992px){
+  :root, :host { --col-interno: 120px; --col-ppu: 100px; }
+}
+/* xs */
+@media (max-width: 576px){
+  :root, :host { --col-interno: 100px; --col-ppu: 88px; }
+}
+
+/* ===== PDF overlay ===== */
 .pdf-overlay{
   position: fixed; inset: 0; background: rgba(0,0,0,.55);
   z-index: 2100; display: flex; flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 .pdf-toolbar{
   display: flex; align-items: center; gap: 8px;
@@ -1862,23 +1861,18 @@ onUnmounted(() => {
   position: sticky;
   background: #fff;
   z-index: 3;
-  left: calc(160px + 140px);
+  left: calc(var(--col-interno) + var(--col-ppu));
   box-shadow: 2px 0 0 rgba(0,0,0,0.06);
 }
 .table thead th.sticky-col-3 { z-index: 4; }
 
-@media (max-width: 992px){
-  .col-interno { width: 120px; min-width: 120px; }
-  .col-ppu     { width: 100px; min-width: 100px; }
-  .sticky-col-2 { left: 120px; }
-  .sticky-col-3 { left: calc(120px + 100px); }
-}
-@media (max-width: 576px){
-  .col-interno { width: 100px; min-width: 100px; }
-  .col-ppu     { width: 88px;  min-width: 88px;  }
-  .sticky-col-2 { left: 100px; }
-  .sticky-col-3 { left: calc(100px + 88px); }
-}
+/* Ajustes dinámicos por variables */
+.col-interno { width: var(--col-interno); min-width: var(--col-interno); }
+.col-ppu     { width: var(--col-ppu);     min-width: var(--col-ppu); }
+.sticky-col, .sticky-col-2 { position: sticky; background: #fff; z-index: 3; }
+.sticky-col   { left: 0;     box-shadow: 2px 0 0 rgba(0,0,0,0.06); }
+.sticky-col-2 { left: var(--col-interno); box-shadow: 2px 0 0 rgba(0,0,0,0.06); }
+.table thead th.sticky-col, .table thead th.sticky-col-2 { z-index: 4; }
 
 /* Modal ajuste leve */
 .modal .list-group-item .btn { padding: .25rem .5rem; }
@@ -1901,36 +1895,15 @@ onUnmounted(() => {
 }
 @media (max-width: 768px){
   .switches{ gap: 4px; }
-  .actions-toolbar{ flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+  .actions-toolbar{
+    flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin;
+    overscroll-behavior-x: contain; padding-bottom: 2px;
+  }
   .actions-toolbar > *{ flex: 0 0 auto; }
   .btn{ padding: .42rem .6rem; }
 }
 
 /* ===== Ajustes de tabla ===== */
-@media (max-width: 992px){
-  .col-interno { width: 120px; min-width: 120px; }
-  .col-ppu     { width: 100px; min-width: 100px; }
-  .cell-input{ font-size: .95rem; min-height: 28px; }
-  .sticky-col-2 { left: 120px; }
-}
-@media (max-width: 576px){
-  .col-interno { width: 100px; min-width: 100px; }
-  .col-ppu     { width: 88px;  min-width: 88px; }
-  .th-turno{ font-size: .72rem; }
-  .sticky-col-2 { left: 100px; }
-}
-
-/* Sticky columnas */
-.col-interno, .col-ppu { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.col-interno { width: 160px; min-width: 160px; }
-.col-ppu     { width: 140px; min-width: 140px; }
-.sticky-col, .sticky-col-2 { position: sticky; background: #fff; z-index: 3; }
-.sticky-col   { left: 0;     box-shadow: 2px 0 0 rgba(0,0,0,0.06); }
-.sticky-col-2 { left: 160px; box-shadow: 2px 0 0 rgba(0,0,0,0.06); }
-.table thead th.sticky-col, .table thead th.sticky-col-2 { z-index: 4; }
-
-/* Tabla */
-.card { border-radius: 16px; background-color: #fff; border: 1px solid #dee2e6; }
 .table td, .table th { vertical-align: middle; padding: 0.25rem; }
 .th-turno { font-size: 0.8rem; line-height: 1; }
 
@@ -1940,7 +1913,6 @@ onUnmounted(() => {
   font-weight: 900; font-size: 1rem; line-height: 1; text-transform: uppercase;
   letter-spacing: .5px; pointer-events: none; user-select: none; z-index: 2; color: white !important;
 }
-.accesos-rapidos{ display:flex; gap:.5rem; justify-content:flex-start; }
 
 /* Input */
 .cell-input{
@@ -1981,18 +1953,25 @@ td.position-relative .btn-xs{
 }
 
 /* Scrolls */
-.scroll-horizontal { overflow-x: auto; scrollbar-width: thin; scrollbar-color: #aaa transparent; }
+.scroll-horizontal {
+  overflow-x: auto; scrollbar-width: thin; scrollbar-color: #aaa transparent;
+  -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
+}
 .scroll-horizontal::-webkit-scrollbar { height: 8px; }
 .scroll-horizontal::-webkit-scrollbar-thumb { background: #aaa; border-radius: 4px; }
 .scroll-horizontal::-webkit-scrollbar-thumb:hover { background: #666; }
-.scroll-equipos { max-height: 600px; overflow-y: auto; margin-bottom: 1rem; padding-right: 8px; scrollbar-width: thin; scrollbar-color: #bbb transparent; }
+
+.scroll-equipos {
+  max-height: 600px; overflow-y: auto; margin-bottom: 1rem; padding-right: 8px;
+  scrollbar-width: thin; scrollbar-color: #bbb transparent;
+  -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+}
 .scroll-equipos::-webkit-scrollbar { width: 8px; }
 .scroll-equipos::-webkit-scrollbar-thumb { background: #bbb; border-radius: 4px; }
 .scroll-equipos::-webkit-scrollbar-thumb:hover { background: #999; }
 
 /* Alerta */
 .alert-danger.shadow-sm h5 { font-weight: 700; }
-.alert-danger .badge text-bg-light { border-color: #e9ecef; }
 
 /* Animación alerta */
 .alert-pop-enter-from { opacity: 0; transform: translateY(-6px) scale(.98); filter: blur(1px); }
@@ -2005,16 +1984,12 @@ td.position-relative .btn-xs{
 /* Zoom tabla */
 .tabla-zoom-out td, .tabla-zoom-out th { font-size: 0.52rem; padding: 0.15rem; }
 .tabla-zoom-out .cell-input { font-size: 0.55rem !important; min-height: 22px !important; }
-@media (max-width: 576px){
-  .tabla-zoom-out .col-interno { width: 60px !important; min-width: 60px !important; }
-  .tabla-zoom-out .col-ppu     { width: 60px !important; min-width: 60px !important; }
-  .tabla-zoom-out .sticky-col-2 { left: 60px !important; }
-}
 
 /* Overlay Excel */
 .excel-overlay{
   position: fixed; inset: 0; background: rgba(0,0,0,.45);
   display: grid; place-items: center; z-index: 2000; backdrop-filter: blur(1px);
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 .excel-box{
   background: rgba(0,0,0,.25); padding: 22px 28px; border-radius: 14px;
@@ -2026,6 +2001,9 @@ td.position-relative .btn-xs{
 /* Fade overlay */
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 .fade-enter-active, .fade-leave-active { transition: opacity .2s ease; }
+
+/* Card */
+.card { border-radius: 16px; background-color: #fff; border: 1px solid #dee2e6; }
 </style>
 
 <script>
