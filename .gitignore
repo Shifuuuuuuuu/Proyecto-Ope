@@ -25,3 +25,4 @@ api-rest-firestore/serviceAccountKey.json
 serviceAccountKey.json
 .env
 .env.local
+/firebase

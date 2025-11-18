@@ -402,10 +402,10 @@
               </div>
               <div class="mb-2">
                 <label>Año del modelo</label>
-                <select v-model="nuevoEquipo.fecha_modelo" class="form-select" required>
-                  <option disabled value="">Selecciona un año</option>
-                  <option v-for="anio in aniosDisponibles" :key="anio" :value="anio">{{ anio }}</option>
-                </select>
+                  <select v-model="nuevoEquipo.fecha_modelo" class="form-select" required>
+                    <option disabled value="">Selecciona un año</option>
+                    <option v-for="anio in aniosDisponibles" :key="anio" :value="anio">{{ anio }}</option>
+                  </select>
               </div>
               <div class="mb-2">
                 <label>Categoría</label>
@@ -426,11 +426,8 @@
               <div class="form-check form-switch mb-3">
                 <input class="form-check-input" type="checkbox" id="swVisible" v-model="nuevoEquipo.visible_actual">
                 <label class="form-check-label" for="swVisible">
-                  Mostrar en operatividad del <strong>mes actual</strong>
+                  Mostrar el Equipo
                 </label>
-                <div class="form-text">
-                  Desactívalo si el equipo está arrendado pero **no se usará** este mes (seguirá visible en meses anteriores).
-                </div>
               </div>
 
               <button type="submit" class="btn btn-warning w-100 btn-w-xs" :disabled="loadingEquiposBtn">
@@ -678,8 +675,14 @@ const usuarios = ref([])
 const contratos = ref([])
 const equiposTodos = ref([])
 const metasOperatividad = ref([])
+const MIN_YEAR = 1900
+const MAX_YEAR = 2026
 
-const aniosDisponibles = Array.from({ length: (new Date().getFullYear() - 1800 + 1) }, (_, i) => 1800 + i)
+const aniosDisponibles = Array.from(
+  { length: MAX_YEAR - MIN_YEAR + 1 },
+  (_, i) => MAX_YEAR - i // de 2026 hacia atrás
+)
+
 
 // Loading por sección
 const loadingUsuarios = ref(false)
