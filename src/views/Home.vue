@@ -23,10 +23,9 @@
               <div class="min-w-0">
                 <h5 class="mb-1">Atención: inactividad detectada</h5>
                 <p class="mb-2">
-                  Los siguientes contratos no tienen registros en las <strong>últimas 48 horas</strong>.
-                  Por favor, ingresa operatividad para mantener la información al día.
+                  Los siguientes contratos tienen <strong>días sin registro de operatividad hasta hoy</strong>.
+                  Debes completar los turnos <strong>A </strong> y <strong>B</strong> para dejar el contrato al día.
                 </p>
-
                 <!-- Listado compacto de contratos atrasados -->
                 <ul class="list-unstyled mb-0">
                   <li v-for="c in contratosAtrasados" :key="c.id" class="mb-2">
@@ -34,9 +33,31 @@
                       <span class="badge text-bg-light border text-truncate" :title="c.nombre" style="max-width: 60ch;">
                         {{ c.nombre }}
                       </span>
-                      <span class="small text-muted">
-                        Último registro: <strong>{{ c._lastText }}</strong>
-                      </span>
+                      <div
+                        class="small text-muted d-flex flex-column flex-sm-row align-items-sm-center gap-1"
+                      >
+                        <!-- Bloque: Último día registrado -->
+                        <div class="d-flex align-items-center flex-wrap gap-1">
+                          <span class="text-nowrap">Último día registrado:</span>
+                          <strong>{{ c._ultimoTextoCorto }}</strong>
+                        </div>
+
+                        <!-- Bloque: Días sin registro (solo si hay) -->
+                        <div
+                          v-if="c._diasSinRegistro && c._diasSinRegistro > 0"
+                          class="d-flex align-items-center flex-wrap gap-1"
+                        >
+                          <!-- Punto separador solo en pantallas sm+ -->
+                          <span class="d-none d-sm-inline">·</span>
+
+                          <span class="text-nowrap">Días sin registro:</span>
+
+                          <!-- Badge para que el número se vea clarito en todas las resoluciones -->
+                          <span class="badge rounded-pill text-bg-light">
+                            {{ c._diasSinRegistro }}
+                          </span>
+                        </div>
+                      </div>
                       <button
                         class="btn btn-sm btn-outline-dark"
                         @click="abrirContratoDesdeAlerta(c.id)"
@@ -1060,93 +1081,180 @@ const generarTooltip = (clave) => {
 }
 
 /* ======================= ALERTA 48H SIN REGISTRO ======================= */
-const lastTimestampByContrato = ref({})
+/* ======================= ALERTA: CONTRATOS NO AL DÍA ======================= */
+/**
+ * estadoContratos[contratoId] = {
+ *   tieneRegistros: boolean,
+ *   ultimaFecha: Date | null,      // último día con registro (por fecha de operatividad)
+ *   ultimoRegistro: Date | null,   // último timestamp/fecha real de inserción
+ *   diasFaltantes: Date[]          // días sin registro desde ultimaFecha+1 hasta hoy
+ * }
+ */
+const estadoContratos = ref({})
 const checkingInactividad = ref(false)
 const showAlert = ref(false)
-function isSameLocalDay(a, b = new Date()) {
-  if (!a) return false
-  const d = a instanceof Date ? a : (a?.toDate ? a.toDate() : new Date(a))
-  return d.getFullYear() === b.getFullYear() && d.getMonth() === b.getMonth() && d.getDate() === b.getDate()
+
+// Normalizar fecha a solo día (00:00)
+function normalizaSoloFecha(d) {
+  const dt = d instanceof Date ? d : (d?.toDate ? d.toDate() : new Date(d))
+  return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), 0, 0, 0, 0)
 }
+
+function formatearSoloFecha(d) {
+  const dt = normalizaSoloFecha(d)
+  const dd = String(dt.getDate()).padStart(2, '0')
+  const mm = String(dt.getMonth() + 1).padStart(2, '0')
+  const yyyy = dt.getFullYear()
+  return `${dd}-${mm}-${yyyy}`
+}
+
+// Reutilizamos maxDateSafe para decidir cuál timestamp es más "reciente"
 function maxDateSafe(a, b) {
   const da = a ? (a.toDate ? a.toDate() : new Date(a)) : null
   const db = b ? (b.toDate ? b.toDate() : new Date(b)) : null
   if (da && db) return da > db ? da : db
   return da || db || null
 }
-function humanizeDiff(fecha) {
-  if (!fecha) return 'Nunca'
-  const ms = Date.now() - fecha.getTime()
-  const mins = Math.floor(ms / 60000)
-  if (mins < 60) return `hace ${mins} min`
-  const horas = Math.floor(mins / 60)
-  if (horas < 48) return `hace ${horas} h`
-  const dias = Math.floor(horas / 24)
-  return dias === 1 ? 'hace 1 día' : `hace ${dias} días`
+
+/**
+ * Calcula:
+ *  - última fecha registrada (por campo `fecha`)
+ *  - días sin registro desde esa fecha hasta hoy
+ *  - último timestamp real de escritura (por si lo quieres usar después)
+ */
+async function fetchEstadoContrato(contratoId) {
+  const hoy = new Date()
+  const hoyDia = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0, 0)
+
+  // Puedes ajustar el inicio del rango (por ahora: desde el primer día del mes actual)
+  const inicioRango = new Date(hoy.getFullYear(), hoy.getMonth(), 1, 0, 0, 0, 0)
+
+  let ultimaFecha = null
+  let ultimoRegistro = null
+  const fechasSet = new Set() // yyyy-mm-dd de los días que SÍ tienen registro
+
+  try {
+    const q1 = query(
+      collection(db, 'operatividad'),
+      where('contratoId', '==', contratoId),
+      where('fecha', '>=', inicioRango),
+      where('fecha', '<=', hoyDia),
+      orderBy('fecha', 'asc')
+    )
+    const snap = await getDocs(q1)
+
+    snap.forEach(docSnap => {
+      const d = docSnap.data()
+      if (!d.fecha) return
+      const f = d.fecha?.toDate ? d.fecha.toDate() : new Date(d.fecha)
+      const fDia = normalizaSoloFecha(f)
+
+      const key = fDia.toISOString().slice(0, 10) // yyyy-mm-dd
+      fechasSet.add(key)
+
+      if (!ultimaFecha || fDia > ultimaFecha) ultimaFecha = fDia
+
+      const bestTS = maxDateSafe(d.timestamp, d.fecha)
+      if (bestTS && (!ultimoRegistro || bestTS > ultimoRegistro)) {
+        ultimoRegistro = bestTS
+      }
+    })
+  } catch (e) {
+    console.error('Error leyendo operatividad para alerta:', e)
+  }
+
+  // Sin ningún registro en el rango
+  if (!ultimaFecha) {
+    return {
+      tieneRegistros: false,
+      ultimaFecha: null,
+      ultimoRegistro: null,
+      diasFaltantes: []
+    }
+  }
+
+  // Construimos los días faltantes desde (ultimaFecha + 1 día) hasta hoy
+  const diasFaltantes = []
+  const desde = new Date(
+    ultimaFecha.getFullYear(),
+    ultimaFecha.getMonth(),
+    ultimaFecha.getDate() + 1,
+    0, 0, 0, 0
+  )
+
+  for (let d = desde; d <= hoyDia; d.setDate(d.getDate() + 1)) {
+    const key = d.toISOString().slice(0, 10)
+    if (!fechasSet.has(key)) {
+      diasFaltantes.push(new Date(d.getTime()))
+    }
+  }
+
+  return {
+    tieneRegistros: true,
+    ultimaFecha,
+    ultimoRegistro: ultimoRegistro || ultimaFecha,
+    diasFaltantes
+  }
 }
 
+// Contratos que NO están al día (tienen días faltantes o nunca han registrado)
 const contratosAtrasados = computed(() => {
-  const limiteHoras = 48; const ahora = new Date()
   return contratosUsuarioValidos.value
     .filter(c => c.activo !== false)
     .map(c => {
-      const t = lastTimestampByContrato.value[c.id] ?? null
-      if (t && isSameLocalDay(t, ahora)) {
-        return { ...c, _diffH: 0, _lastText: humanizeDiff(t), _atrasado: false }
+      const est = estadoContratos.value[c.id] || {}
+      const tieneRegistros = !!est.tieneRegistros
+      const ultimaFecha = est.ultimaFecha || null
+      const diasFaltantes = est.diasFaltantes || []
+      const atrasado = !tieneRegistros || diasFaltantes.length > 0
+
+      return {
+        ...c,
+        _atrasado: atrasado,
+        _ultimaFecha: ultimaFecha,
+        _ultimoTextoCorto: ultimaFecha ? formatearSoloFecha(ultimaFecha) : 'Nunca',
+        _diasSinRegistro: diasFaltantes.length
       }
-      const diffH = t ? (Date.now() - (t instanceof Date ? t : (t?.toDate ? t.toDate() : new Date(t))).getTime()) / 36e5 : Infinity
-      return { ...c, _diffH: diffH, _lastText: humanizeDiff(t), _atrasado: diffH >= limiteHoras }
     })
     .filter(c => c._atrasado)
 })
 
+// Contratos que de verdad nunca han tenido registros
 const contratosNuncaRegistrados = computed(() =>
-  contratosUsuarioValidos.value.filter(c => lastTimestampByContrato.value[c.id] === null)
+  contratosUsuarioValidos.value.filter(c => {
+    const est = estadoContratos.value[c.id]
+    return !est || !est.tieneRegistros
+  })
 )
-async function fetchUltimoRegistroContrato(contratoId) {
-  try {
-    const q1 = query(collection(db, 'operatividad'), where('contratoId', '==', contratoId), orderBy('fecha', 'desc'), limit(50))
-    const snap = await getDocs(q1)
-    if (!snap.empty) {
-      let ultimo = null
-      snap.forEach(docSnap => {
-        const d = docSnap.data()
-        const best = maxDateSafe(d?.timestamp, d?.fecha)
-        if (best && (!ultimo || best > ultimo)) ultimo = best
-      })
-      if (ultimo) return ultimo
-    }
-  } catch (e){console.error(e)}
-  try {
-    const q2 = query(collection(db, 'operatividad'), where('contratoId', '==', contratoId), limit(100))
-    const snap2 = await getDocs(q2)
-    if (!snap2.empty) {
-      let ultimo = null
-      snap2.forEach(docSnap => {
-        const d = docSnap.data()
-        const best = maxDateSafe(d?.timestamp, d?.fecha)
-        if (best && (!ultimo || best > ultimo)) ultimo = best
-      })
-      if (ultimo) return ultimo
-    }
-  } catch(e) {console.error(e)}
-  return null
-}
+
+// Rellena estadoContratos para todos los contratos del usuario
 async function revisarInactividadContratos() {
   if (!contratosUsuarioValidos.value.length) return
   checkingInactividad.value = true
   try {
     const resultados = {}
-    await Promise.all(contratosUsuarioValidos.value.map(async c => { resultados[c.id] = await fetchUltimoRegistroContrato(c.id) }))
-    lastTimestampByContrato.value = resultados
-  } finally { checkingInactividad.value = false }
+    await Promise.all(
+      contratosUsuarioValidos.value.map(async (c) => {
+        resultados[c.id] = await fetchEstadoContrato(c.id)
+      })
+    )
+    estadoContratos.value = resultados
+  } finally {
+    checkingInactividad.value = false
+  }
 }
+
+// Vuelve a calcular y muestra la alerta con pequeña animación
 async function refrescarAlertaAnimada() {
   showAlert.value = false
   await revisarInactividadContratos()
   await nextTick()
-  if (contratosAtrasados.value.length > 0) { setTimeout(() => { showAlert.value = true }, 80) }
+  if (contratosAtrasados.value.length > 0) {
+    setTimeout(() => { showAlert.value = true }, 80)
+  }
 }
+
+// Mantengo esta función igual que la tenías (abre el contrato y hace scroll)
 async function abrirContratoDesdeAlerta(contratoId) {
   if (expandedContrato.value !== contratoId) {
     expandedContrato.value = contratoId
@@ -1155,6 +1263,7 @@ async function abrirContratoDesdeAlerta(contratoId) {
   const el = document.querySelector(`[data-contrato-id="${contratoId}"]`)
   el?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
 }
+
 
 /* ======================= AUTH + CONTRATOS ======================= */
 async function obtenerContratosDelUsuario() {
