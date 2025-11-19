@@ -252,13 +252,6 @@
                     </button>
                   </div>
                 </div>
-
-                <p v-if="expandedContrato === contrato.id" class="card-text mt-2">
-                  <strong>Equipos asociados:</strong>
-                  <span v-if="loadingContrato[contrato.id]" class="text-muted">cargando…</span>
-                  <span v-else>{{ (equiposByContrato[contrato.id]?.length) ?? 0 }}</span>
-                </p>
-
                 <!-- Detalle contrato -->
                 <div v-if="expandedContrato === contrato.id" class="scroll-equipos">
                   <div v-if="loadingContrato[contrato.id]" class="text-center py-4">
@@ -285,7 +278,7 @@
                                   <th rowspan="2" class="sticky-col col-interno">Nº INTERNO</th>
                                   <th rowspan="2" class="sticky-col-2 col-ppu">PPU</th>
                                   <th rowspan="2" class="sticky-col-3 col-docs">Docs</th>
-                                  <th v-for="dia in diasPorContrato(contrato.id)" :key="dia" colspan="2">
+                                  <th v-for="dia in diasPorContratoMap[contrato.id]" :key="dia" colspan="2">
                                     {{ dia }}
                                   </th>
                                 </tr>
@@ -312,7 +305,7 @@
                                     </button>
                                   </td>
 
-                                  <template v-for="(dia, diaIndex) in diasPorContrato(contrato.id)" :key="'turno-' + dia">
+                                  <template v-for="(dia, diaIndex) in diasPorContratoMap[contrato.id]" :key="'turno-' + dia">
                                     <!-- A -->
                                     <td class="position-relative p-1"
                                         :class="{ 'cell-selected': isSelected(equipo.id, 'A', dia) }"
@@ -699,7 +692,7 @@ import { ref, onMounted, onUnmounted, computed, defineOptions, nextTick, watch }
 import { db } from '../firebase/config'
 import {
   collection, getDocs, setDoc, doc, getDoc, addDoc, deleteDoc,
-  query, where, orderBy, limit
+  query, where, orderBy
 } from 'firebase/firestore'
 
 import { getAuth, onAuthStateChanged } from 'firebase/auth'
@@ -938,8 +931,7 @@ onMounted(() => {
 
 /* Carga por contrato */
 const loadingContrato = ref({})
-const loadingConteo = ref({})
-const conteoEquipos = ref({})
+
 const equiposByContrato = ref({})
 const operByContrato = ref({})
 const expandedContrato = ref(null)
@@ -1168,7 +1160,7 @@ async function fetchEstadoContrato(contratoId) {
     return {
       tieneRegistros: false,
       ultimaFecha: null,
-      ultimoRegistro: null,
+      ultimoRegistro: ultimoRegistro || ultimaFecha,
       diasFaltantes: []
     }
   }
@@ -1197,27 +1189,49 @@ async function fetchEstadoContrato(contratoId) {
   }
 }
 
-// Contratos que NO están al día (tienen días faltantes o nunca han registrado)
 const contratosAtrasados = computed(() => {
+  const ahora = new Date()
+
   return contratosUsuarioValidos.value
     .filter(c => c.activo !== false)
     .map(c => {
       const est = estadoContratos.value[c.id] || {}
-      const tieneRegistros = !!est.tieneRegistros
-      const ultimaFecha = est.ultimaFecha || null
-      const diasFaltantes = est.diasFaltantes || []
-      const atrasado = !tieneRegistros || diasFaltantes.length > 0
+
+      const tieneRegistros   = !!est.tieneRegistros
+      const ultimaFecha      = est.ultimaFecha || null
+      const diasFaltantes    = est.diasFaltantes || []
+      const ultimoRegistro   = est.ultimoRegistro || null
+
+      let horasSinRegistrar = null
+      let inactivo48h = false
+
+      if (ultimoRegistro) {
+        const dt = ultimoRegistro.toDate ? ultimoRegistro.toDate() : new Date(ultimoRegistro)
+        horasSinRegistrar = (ahora.getTime() - dt.getTime()) / (1000 * 60 * 60)
+        inactivo48h = horasSinRegistrar >= 48
+      } else if (!tieneRegistros) {
+        // Nunca ha registrado nada → lo consideramos como inactivo +48h
+        inactivo48h = true
+      }
+
+      // 🔴 SOLO marcamos atrasado si:
+      // - tiene días sin registro Y
+      // - han pasado al menos 48 horas desde el último registro
+      const atrasado = inactivo48h && (!tieneRegistros || diasFaltantes.length > 0)
 
       return {
         ...c,
         _atrasado: atrasado,
         _ultimaFecha: ultimaFecha,
         _ultimoTextoCorto: ultimaFecha ? formatearSoloFecha(ultimaFecha) : 'Nunca',
-        _diasSinRegistro: diasFaltantes.length
+        _diasSinRegistro: diasFaltantes.length,
+        _horasSinRegistrar: horasSinRegistrar,
+        _inactivo48h: inactivo48h
       }
     })
     .filter(c => c._atrasado)
 })
+
 
 // Contratos que de verdad nunca han tenido registros
 const contratosNuncaRegistrados = computed(() =>
@@ -1250,7 +1264,7 @@ async function refrescarAlertaAnimada() {
   await revisarInactividadContratos()
   await nextTick()
   if (contratosAtrasados.value.length > 0) {
-    setTimeout(() => { showAlert.value = true }, 80)
+    setTimeout(() => { showAlert.value = true }, 120)
   }
 }
 
@@ -1296,23 +1310,25 @@ async function obtenerContratosDelUsuario() {
   }
 
   contratosUsuario.value = results.filter(c => c.activo !== false)
+    setTimeout(async () => {
+    await revisarInactividadContratos()
+    if (contratosAtrasados.value.length > 0) {
+      showAlert.value = true
+    }
+  }, 500) 
 
-  for (const c of contratosUsuario.value) cargarConteoEquipos(c.id)
   await revisarInactividadContratos()
   await nextTick()
   if (contratosAtrasados.value.length > 0) setTimeout(() => { showAlert.value = true }, 120)
 }
 
-
-/* ======================= CONTEO RÁPIDO ======================= */
-async function cargarConteoEquipos(contratoId) {
-  loadingConteo.value[contratoId] = true
-  try {
-    const qeq = query(collection(db, 'equipos'), where('contratoId', '==', contratoId), limit(1))
-    const snap = await getDocs(qeq)
-    conteoEquipos.value[contratoId] = snap.empty ? 0 : undefined
-  } finally { loadingConteo.value[contratoId] = false }
-}
+const diasPorContratoMap = computed(() => {
+  const mapa = {}
+  for (const c of contratosUsuarioValidos.value) {
+    mapa[c.id] = diasPorContrato(c.id)
+  }
+  return mapa
+})
 
 /* ======================= CARGA LAZY POR CONTRATO ======================= */
 async function cargarContratoDetalle(contratoId, { force = false } = {}) {
@@ -1347,7 +1363,6 @@ async function cargarContratoDetalle(contratoId, { force = false } = {}) {
     )
 
     equiposByContrato.value[contratoId] = equipos
-    conteoEquipos.value[contratoId] = equipos.length
 
     // Operatividad del período
     const qo = query(
@@ -1732,14 +1747,7 @@ async function descargarExcelContrato(contrato) {
   }
 }
 
-/* ======================= MONTAJE ======================= */
-onMounted(() => {
-  const auth = getAuth()
-  onAuthStateChanged(auth, async (user) => {
-    if (user) { await obtenerContratosDelUsuario() }
-    loading.value = false
-  })
-})
+
 
 /* ======================= SELECCIÓN MÚLTIPLE ======================= */
 const selectionMode = ref(false)
