@@ -4,7 +4,6 @@
     <h2 class="mb-4 text-center">Menú Principal</h2>
 
     <div class="row g-4 justify-content-center">
-      <!-- Registro de Disponibilidad -->
       <div class="col-12 col-md-6 col-lg-4">
         <div class="card menu-card h-100">
           <div class="card-body d-flex flex-column align-items-center text-center">
@@ -13,36 +12,26 @@
             <p class="card-text text-muted">
               Registra la disponibilidad operativa de los equipos asignados por contrato.
             </p>
-            <router-link
-              :to="{ name: 'Home' }"
-              class="btn btn-danger mt-auto w-100"
-            >
+            <router-link :to="{ name: 'Home' }" class="btn btn-danger mt-auto w-100">
               Abrir
             </router-link>
           </div>
         </div>
       </div>
 
-      <!-- Solicitudes de Arriendos de Equipos -->
       <div class="col-12 col-md-6 col-lg-4">
         <div class="card menu-card h-100">
           <div class="card-body d-flex flex-column align-items-center text-center">
             <i class="bi bi-truck fs-1 mb-3"></i>
             <h5 class="card-title">Solicitudes de Arriendos de Equipos</h5>
-            <p class="card-text text-muted">
-              Crea y gestiona los arriendos de equipos.
-            </p>
-            <router-link
-              :to="{ name: 'RegistroArriendos' }"
-              class="btn btn-danger mt-auto w-100"
-            >
+            <p class="card-text text-muted">Crea y gestiona los arriendos de equipos.</p>
+            <router-link :to="{ name: 'RegistroArriendos' }" class="btn btn-danger mt-auto w-100">
               Abrir
             </router-link>
           </div>
         </div>
       </div>
 
-      <!-- Reportes de Fallas de Equipos -->
       <div class="col-12 col-md-6 col-lg-4">
         <div class="card menu-card h-100">
           <div class="card-body d-flex flex-column align-items-center text-center">
@@ -51,17 +40,12 @@
             <p class="card-text text-muted">
               Registra, edita y gestiona los reportes de fallas en los equipos por contrato.
             </p>
-            <router-link
-              :to="{ name: 'ReportesFallas' }"
-              class="btn btn-danger mt-auto w-100"
-            >
+            <router-link :to="{ name: 'ReportesFallas' }" class="btn btn-danger mt-auto w-100">
               Abrir
             </router-link>
           </div>
         </div>
       </div>
-
-      <!-- Control OT (solo Admin / Visualizador) -->
       <div class="col-12 col-md-6 col-lg-4" v-if="canSeeControlOT">
         <div class="card menu-card h-100">
           <div class="card-body d-flex flex-column align-items-center text-center">
@@ -70,15 +54,28 @@
             <p class="card-text text-muted">
               Gestiona y monitorea la información de las Órdenes de Trabajo (OT).
             </p>
-            <router-link
-              :to="{ name: 'SubMenuOT' }"
-              class="btn btn-danger mt-auto w-100"
-            >
+            <router-link :to="{ name: 'SubMenuOT' }" class="btn btn-danger mt-auto w-100">
               Abrir
             </router-link>
           </div>
         </div>
       </div>
+
+      <div class="col-12 col-md-6 col-lg-4" >
+        <div class="card menu-card h-100">
+          <div class="card-body d-flex flex-column align-items-center text-center">
+            <i class="bi bi-search fs-1 mb-3"></i>
+            <h5 class="card-title">Buscar equipos</h5>
+            <p class="card-text text-muted">
+              Busca todos los equipos de todos los contratos.
+            </p>
+            <router-link :to="{ name: 'BuscarEquipos' }" class="btn btn-danger mt-auto w-100">
+              Abrir
+            </router-link>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </template>
@@ -92,10 +89,6 @@ import { doc, getDoc } from 'firebase/firestore'
 const rol = ref('operador')
 const canSeeControlOT = ref(false)
 
-/**
- * Lee el rol desde Firestore: usuarios/{uid}.rol
- * (coincide con tu auth.js y router actual)
- */
 onMounted(() => {
   const auth = getAuth()
   onAuthStateChanged(auth, async (user) => {

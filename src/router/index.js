@@ -13,10 +13,9 @@ import PerfilUsuario from '../views/PerfilUsuario.vue'
 import HistorialOperatividad from '../views/HistorialOperatividadView.vue'
 import EquiposOperadorView from '../views/EquiposOperadorView.vue'
 import IngresoEquiposView from '../views/IngresoEquiposView.vue'
+import BuscarEquipos from "@/views/BuscarEquipos.vue";
 const CargarCertificado = () => import('@/views/CargarCertificado.vue')
 const VerificarCertificado = () => import('@/views/VerificarCertificado.vue')
-
-// Nuevas páginas y menú PRINCIPAL (lazy)
 const MenuPrincipal = () => import('@/views/MenuPrincipal.vue')
 const RegistroArriendos = () => import('@/views/RegistroArriendos.vue')
 const ReportesFallas = () => import('@/views/ReportesFallas.vue')
@@ -121,7 +120,12 @@ const routes = [
     name: 'CambioAceiteMotor',
     component: () => import('../views/CambioAceiteMotor.vue'),
     meta: { requiresAuth: true, onlyRoles: ['admin', 'visualizador'] }
-  }
+  },
+{
+  path: "/buscar-equipos",
+  name: "BuscarEquipos",
+  component: BuscarEquipos,
+}
 ]
 
 const router = createRouter({

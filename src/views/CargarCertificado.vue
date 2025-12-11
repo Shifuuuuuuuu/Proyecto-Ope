@@ -34,7 +34,10 @@
                 {{ batchMode ? 'Archivos de certificados (PDF o imagen, múltiples)' : 'Archivo del certificado (PDF o imagen)' }}
               </label>
               <input type="file" :multiple="batchMode" accept="application/pdf,image/*" class="form-control" @change="onFile" />
-              <div class="form-text">Se incrustará un QR en la primera página (abajo a la derecha) sin re-comprimir el PDF original.</div>
+              <div class="form-text">
+                Se incrustará un QR en la primera página usando la posición que definas en la vista previa,
+                sin re-comprimir el PDF original.
+              </div>
             </div>
 
             <!-- Campos base para modo simple -->
@@ -90,8 +93,22 @@
                           <option v-for="c in categorias" :key="c" :value="c">{{ c }}</option>
                         </select>
                       </td>
-                      <td><input class="form-control form-control-sm" v-model.trim="r.equipo" @input="r.equipo=r.equipo.toUpperCase()" placeholder="MIXER 1234" /></td>
-                      <td><input class="form-control form-control-sm" v-model.trim="r.codigo" @input="r.codigo=r.codigo.toUpperCase()" placeholder="XT-0001" /></td>
+                      <td>
+                        <input
+                          class="form-control form-control-sm"
+                          v-model.trim="r.equipo"
+                          @input="r.equipo=r.equipo.toUpperCase()"
+                          placeholder="MIXER 1234"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          class="form-control form-control-sm"
+                          v-model.trim="r.codigo"
+                          @input="r.codigo=r.codigo.toUpperCase()"
+                          placeholder="XT-0001"
+                        />
+                      </td>
                       <td>
                         <select class="form-select form-select-sm" v-model="r.aprobado">
                           <option :value="true">Sí</option>
@@ -125,15 +142,43 @@
         <!-- Vista previa (modo 1 a 1) -->
         <div v-if="!batchMode && previewUrl" class="mt-3">
           <h6 class="text-muted">Vista previa (primera página):</h6>
-          <embed :src="previewUrl" type="application/pdf" class="w-100" style="height: 420px;" />
+
+          <div
+            ref="previewWrapper"
+            class="position-relative border"
+            style="height: 420px; overflow: hidden;"
+          >
+            <embed
+              :src="previewUrl"
+              type="application/pdf"
+              class="w-100 h-100"
+            />
+
+            <!-- QR draggable encima del PDF -->
+            <div
+              v-if="qrDataUrl"
+              :style="qrOverlayStyle"
+              @mousedown.prevent="startDragQr"
+            >
+              <img
+                :src="qrDataUrl"
+                alt="QR"
+                class="w-100 h-100"
+                draggable="false"
+              />
+            </div>
+          </div>
+
           <div class="small text-muted mt-2">
             Tamaño final aprox.: <strong>{{ humanSize(bytesFinal) }}</strong>
-            <span v-if="singlePreUploaded" class="badge bg-info ms-2">Subido al seleccionar (troceado si es grande)</span>
+          </div>
+          <div class="small text-muted mt-2">
+            Puedes arrastrar el QR en la vista previa para elegir su posición.
           </div>
         </div>
 
-        <div v-if="!batchMode && qrDataUrl" class="mt-4">
-          <h6 class="text-muted">QR generado:</h6>
+        <div v-if="!batchMode && qrDataUrl && verificationUrl" class="mt-4">
+          <h6 class="text-muted">QR generado (último certificado):</h6>
           <img :src="qrDataUrl" alt="QR" style="width: 160px; height: 160px" />
           <div class="small text-break mt-2">{{ verificationUrl }}</div>
         </div>
@@ -158,14 +203,21 @@
                   <td>{{ idx + 1 }}</td>
                   <td class="text-break">
                     {{ r.name }}
-                    <span v-if="r.preUploaded" class="badge bg-info ms-2">Subido al seleccionar</span>
                   </td>
                   <td>{{ humanSize(r.sizeBytes) }}</td>
                   <td>
                     <span class="badge bg-success">Sin recomprimir</span>
                   </td>
-                  <td><router-link class="btn btn-success btn-sm" :to="`/verificar?id=${r.id}`">Abrir</router-link></td>
-                  <td><button class="btn btn-outline-primary btn-sm" @click="downloadBlob(r.objectUrl, r.downloadName)">Descargar</button></td>
+                  <td>
+                    <router-link class="btn btn-success btn-sm" :to="`/verificar?id=${r.id}`">
+                      Abrir
+                    </router-link>
+                  </td>
+                  <td>
+                    <button class="btn btn-outline-primary btn-sm" @click="downloadBlob(r.objectUrl, r.downloadName)">
+                      Descargar
+                    </button>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -215,7 +267,9 @@
               <span v-if="!loadingList">Actualizar</span>
               <span v-else class="spinner-border spinner-border-sm"></span>
             </button>
-            <button class="btn btn-outline-primary w-100" @click="mostrarMas" :disabled="loadingList || pageSize>=100">Mostrar más</button>
+            <button class="btn btn-outline-primary w-100" @click="mostrarMas" :disabled="loadingList || pageSize>=100">
+              Mostrar más
+            </button>
           </div>
         </div>
 
@@ -224,8 +278,14 @@
           <table class="table table-sm align-middle">
             <thead>
               <tr>
-                <th>Archivo</th><th>Categoría</th><th>Equipo</th><th>Código</th>
-                <th>Creado</th><th>Vence</th><th>Estado</th><th style="width: 280px;">Acciones</th>
+                <th>Archivo</th>
+                <th>Categoría</th>
+                <th>Equipo</th>
+                <th>Código</th>
+                <th>Creado</th>
+                <th>Vence</th>
+                <th>Estado</th>
+                <th style="width: 280px;">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -337,7 +397,12 @@
               </div>
               <div class="col-12">
                 <label class="form-label">Reemplazar archivo (opcional)</label>
-                <input type="file" class="form-control" accept="application/pdf,image/*" @change="e=>editNewFile=e.target.files?.[0]||null">
+                <input
+                  type="file"
+                  class="form-control"
+                  accept="application/pdf,image/*"
+                  @change="e=>editNewFile=e.target.files?.[0]||null"
+                >
                 <small class="text-muted">Se volverá a incrustar el QR sin recomprimir el PDF.</small>
               </div>
             </div>
@@ -355,7 +420,10 @@
       <div class="modal-dialog modal-sm modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
           <div class="modal-body text-center p-4">
-            <div class="rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" style="width:64px;height:64px;background:#fff0f0;border:1px solid #ffd6d6;">
+            <div
+              class="rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center"
+              style="width:64px;height:64px;background:#fff0f0;border:1px solid #ffd6d6;"
+            >
               <i class="bi bi-trash3-fill fs-3 text-danger"></i>
             </div>
             <h6 class="mb-1">¿Eliminar certificado?</h6>
@@ -371,8 +439,13 @@
 
     <!-- TOASTS -->
     <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080">
-      <div v-for="t in toasts" :key="t.id" class="toast show align-items-center text-white border-0 mb-2"
-           :class="toastClass(t.variant)" role="alert">
+      <div
+        v-for="t in toasts"
+        :key="t.id"
+        class="toast show align-items-center text-white border-0 mb-2"
+        :class="toastClass(t.variant)"
+        role="alert"
+      >
         <div class="d-flex">
           <div class="toast-body d-flex align-items-center gap-2">
             <i :class="toastIcon(t.variant)"></i>
@@ -392,7 +465,7 @@ import { v4 as uuidv4 } from "uuid"
 import { PDFDocument, rgb } from "pdf-lib"
 import { ref, reactive, computed, onMounted, watch } from "vue"
 import { db } from "@/firebase/config"
-import { doc, setDoc, serverTimestamp, getDocs, collection } from "firebase/firestore"
+import { getDocs, collection } from "firebase/firestore"
 import logoSrc from "@/img/Logo XT Servicios Transparente.png"
 
 /* Servicio */
@@ -404,10 +477,6 @@ import {
   actualizarMetadatos,
   reemplazarArchivo
 } from "@/services/certificadosService"
-
-/* ===== Config nitidez (sin recomprimir) ===== */
-/** No imponemos tope de 800KB. Si pesa, lo subimos en chunks vía Firestore. */
-const PREUPLOAD_THRESHOLD_BYTES = 1_200 * 1024; // si pasa ~1.2MB binario, pre-subimos (troceado)
 
 /* ===== Estado ===== */
 const batchMode = ref(false)
@@ -421,8 +490,32 @@ const verificationUrl = ref("")
 const originalFileName = ref("")
 const lastId = ref(null)
 const lastVerifyUrl = ref("")
-const singlePreUploaded = ref(false)
-const preSavedId = ref(null)
+
+// contenedor de la vista previa para el drag
+const previewWrapper = ref(null)
+
+// layout del QR en porcentajes (0–1)
+const qrLayout = reactive({
+  xPct: 0.85,   // 0 = izquierda, 1 = derecha
+  yPct: 0.15,   // 0 = arriba, 1 = abajo
+  sizePct: 0.18 // ancho del QR como % del ancho de la página
+})
+
+const draggingQr = ref(false)
+const dragOffset = reactive({ x: 0, y: 0 })
+
+const qrOverlayStyle = computed(() => ({
+  position: 'absolute',
+  left: `${qrLayout.xPct * 100}%`,
+  top: `${qrLayout.yPct * 100}%`,
+  transform: 'translate(-50%, -50%)',
+  width: `${qrLayout.sizePct * 100}%`,
+  aspectRatio: '1 / 1',
+  cursor: 'move',
+  boxShadow: '0 0 0 2px rgba(0,0,0,.3)',
+  borderRadius: '4px',
+  background: '#fff'
+}))
 
 const batchRows = ref([])
 const batchResults = ref([])
@@ -431,7 +524,7 @@ const batchProgress = ref({ current: 0, total: 0 })
 // progreso modal
 const showProgress = ref(false)
 const progress = ref({ stage: 'reading', pct: 0, detail: '' })
-const pdfJsError = ref("") // mantenido para compat, pero ya no usamos pdf.js
+const pdfJsError = ref("") // mantenido para compat
 
 // Modal de edición
 const showEdit = ref(false)
@@ -475,15 +568,24 @@ watch(batchMode, () => {
   verificationUrl.value = ""
   batchResults.value = []
   batchRows.value = []
-  singlePreUploaded.value = false
-  preSavedId.value = null
+  // reset layout por si acaso
+  qrLayout.xPct = 0.85
+  qrLayout.yPct = 0.15
+  qrLayout.sizePct = 0.18
 })
 
 watch([filtroCategoria, pageSize, lista], () => { page.value = 1 })
 
 /* ===== Helpers ===== */
 function toUpper(field) { form[field] = (form[field] || "").toUpperCase() }
-function fechaLocal(d) { try { const dt = d instanceof Date ? d : new Date(d); return dt.toLocaleDateString() + " " + dt.toLocaleTimeString() } catch { return "—" } }
+function fechaLocal(d) {
+  try {
+    const dt = d instanceof Date ? d : new Date(d)
+    return dt.toLocaleDateString() + " " + dt.toLocaleTimeString()
+  } catch {
+    return "—"
+  }
+}
 function addMonths(date, months) { const d = new Date(date); d.setMonth(d.getMonth() + months); return d }
 function bytesToBase64(bytes) {
   let binary = ""; const chunk = 0x8000
@@ -503,8 +605,57 @@ async function copiar(text) {
   try { await navigator.clipboard.writeText(text); showToast('success','Link copiado al portapapeles') }
   catch(e){ console.error(e); showToast('warning','No se pudo copiar. Copia manualmente el texto.') }
 }
-function humanSize(n) { if (n===0) return "0 B"; if (!n) return "—"; const u=["B","KB","MB"]; let i=0, x=n; while(x>=1024&&i<u.length-1){x/=1024;i++} return `${x.toFixed(2)} ${u[i]}` }
-function downloadBlob(url, filename){ const a=document.createElement("a"); a.href=url; a.download=filename; a.click(); setTimeout(()=>URL.revokeObjectURL(url),10_000) }
+function humanSize(n) {
+  if (n===0) return "0 B"
+  if (!n) return "—"
+  const u=["B","KB","MB"]; let i=0, x=n
+  while(x>=1024&&i<u.length-1){x/=1024;i++}
+  return `${x.toFixed(2)} ${u[i]}`
+}
+function downloadBlob(url, filename){
+  const a=document.createElement("a")
+  a.href=url
+  a.download=filename
+  a.click()
+  setTimeout(()=>URL.revokeObjectURL(url),10_000)
+}
+
+/* ===== Drag & drop del QR en la vista previa ===== */
+function startDragQr(event) {
+  if (!previewWrapper.value) return
+  draggingQr.value = true
+
+  const wrapperRect = previewWrapper.value.getBoundingClientRect()
+  dragOffset.x = event.clientX - wrapperRect.left
+  dragOffset.y = event.clientY - wrapperRect.top
+
+  window.addEventListener('mousemove', onDragQr)
+  window.addEventListener('mouseup', stopDragQr)
+}
+
+function onDragQr(event) {
+  if (!draggingQr.value || !previewWrapper.value) return
+
+  const rect = previewWrapper.value.getBoundingClientRect()
+  let x = event.clientX - rect.left
+  let y = event.clientY - rect.top
+
+  let xPct = x / rect.width
+  let yPct = y / rect.height
+
+  const margin = 0.05
+  xPct = Math.max(margin, Math.min(1 - margin, xPct))
+  yPct = Math.max(margin, Math.min(1 - margin, yPct))
+
+  qrLayout.xPct = xPct
+  qrLayout.yPct = yPct
+}
+
+function stopDragQr() {
+  draggingQr.value = false
+  window.removeEventListener('mousemove', onDragQr)
+  window.removeEventListener('mouseup', stopDragQr)
+}
 
 /* ===== Toasts ===== */
 const toasts = ref([])
@@ -537,7 +688,10 @@ function toastIcon(v){
 async function cargarCategorias(){
   try{
     const snap=await getDocs(collection(db,"categorias"))
-    categorias.value = snap.docs.map(d => (d.data()?.nombre || "").toString()).filter(Boolean).sort()
+    categorias.value = snap.docs
+      .map(d => (d.data()?.nombre || "").toString())
+      .filter(Boolean)
+      .sort()
   }catch{
     categorias.value=[]
   }
@@ -578,81 +732,61 @@ async function onFile(e){
     const arr = Array.from(e.target.files || [])
     batchRows.value = arr.map(f => ({
       key: `${Date.now()}_${f.name}_${Math.random().toString(36).slice(2,8)}`,
-      file: f, fileName: f.name, sizeBytes: f.size,
-      categoria: "", equipo: "", codigo: "", aprobado: true,
-      id: null, preUploaded: false
+      file: f,
+      fileName: f.name,
+      sizeBytes: f.size,
+      categoria: "",
+      equipo: "",
+      codigo: "",
+      aprobado: true,
+      id: null
     }))
   } else {
     file.value = e.target.files?.[0] || null
     originalFileName.value = file.value?.name || ""
-    previewUrl.value=null; qrDataUrl.value=null; verificationUrl.value=""; bytesFinal.value=0
-    singlePreUploaded.value = false; preSavedId.value = null
+    bytesFinal.value = 0
+    verificationUrl.value = ""
 
-    if (file.value && file.value.size > PREUPLOAD_THRESHOLD_BYTES){
-      await preUploadSingle(file.value)
+    // reset layout
+    qrLayout.xPct = 0.85
+    qrLayout.yPct = 0.15
+    qrLayout.sizePct = 0.18
+
+    if (previewUrl.value) {
+      URL.revokeObjectURL(previewUrl.value)
     }
-  }
-}
+    previewUrl.value = file.value ? URL.createObjectURL(file.value) : null
 
-/** Pre-subida inmediata (si excede ~1.2MB) usando troceo, sin recomprimir */
-async function preUploadSingle(f){
-  try{
-    showProgress.value = true
-    progress.value = { stage:'reading', pct: 0, detail:'Preparando borrador…' }
-
-    const tempId = uuidv4()
-    const creadoLocal = new Date()
-    await setDoc(doc(db,"certificados", tempId), {
-      creado: serverTimestamp(),
-      creado_iso: creadoLocal.toISOString(),
-      file_name: f.name || `certificado_${tempId}.pdf`,
-      isDraft: true
-    })
-
-    const verifyUrl = `${location.origin}/verificar?id=${tempId}`
-    await setDoc(doc(db,"certificados", tempId), { verificar_url: verifyUrl }, { merge: true })
-    const qrUrl = await QRCode.toDataURL(verifyUrl, { margin:1, width:300 })
-    verificationUrl.value = verifyUrl
-    qrDataUrl.value = qrUrl
-
-    progress.value = { stage:'optimizing', pct: 10, detail:'Incrustando QR (sin perder calidad)…' }
-    const finalBytes = await buildPdfWithQr(f, qrUrl) // sin rasterizar
-
-    const blob = new Blob([finalBytes], { type:"application/pdf" })
-    const url = URL.createObjectURL(blob)
-    previewUrl.value = url
-    bytesFinal.value = finalBytes.byteLength
-
-    const b64 = bytesToBase64(new Uint8Array(finalBytes))
-    const dataUrl = `data:application/pdf;base64,${b64}`
-
-    progress.value = { stage:'uploading', pct: 0, detail:'Subiendo (en partes si hace falta)…' }
-    await reemplazarArchivo(
-      tempId,
-      { base64: dataUrl, mimeType: 'application/pdf', sizeBytes: finalBytes.byteLength, preferirChunks: true },
-      (e)=>{ progress.value = e }
-    )
-
-    showProgress.value = false
-    singlePreUploaded.value = true
-    preSavedId.value = tempId
-    lastId.value = tempId
-    lastVerifyUrl.value = verifyUrl
-    showToast('success','Archivo grande pre-subido sin recomprimir; listo para guardar metadatos')
-  }catch(e){
-    console.error(e)
-    showProgress.value = false
-    showToast('danger','No se pudo subir el archivo al seleccionar')
+    // QR temporal para poder moverlo en la vista previa
+    if (file.value) {
+      qrDataUrl.value = await QRCode.toDataURL("PREVIEW", { margin: 1, width: 300 })
+    } else {
+      qrDataUrl.value = null
+    }
   }
 }
 
 /* ===== Flujo simple ===== */
 function limpiar(){
-  files.value=[]; file.value=null; originalFileName.value="";
-  previewUrl.value=null; qrDataUrl.value=null; verificationUrl.value="";
-  bytesFinal.value=0; form.categoria=""; form.equipo=""; form.codigo=""; form.aprobado=true;
-  batchResults.value=[]; batchRows.value=[];
-  singlePreUploaded.value=false; preSavedId.value=null
+  files.value=[]
+  file.value=null
+  originalFileName.value=""
+  if (previewUrl.value) {
+    URL.revokeObjectURL(previewUrl.value)
+  }
+  previewUrl.value=null
+  qrDataUrl.value=null
+  verificationUrl.value=""
+  bytesFinal.value=0
+  form.categoria=""
+  form.equipo=""
+  form.codigo=""
+  form.aprobado=true
+  batchResults.value=[]
+  batchRows.value=[]
+  qrLayout.xPct = 0.85
+  qrLayout.yPct = 0.15
+  qrLayout.sizePct = 0.18
 }
 
 async function procesar(){
@@ -664,29 +798,13 @@ async function procesar(){
     const creadoLocal = new Date()
     const venceLocal = addMonths(creadoLocal, 3)
 
-    if (singlePreUploaded.value && preSavedId.value){
-      await actualizarMetadatos(preSavedId.value, {
-        categoria: form.categoria || null,
-        equipo: form.equipo || null,
-        codigo: form.codigo || null,
-        aprobado: !!form.aprobado,
-        fecha_vencimiento: venceLocal.toISOString(),
-        isDraft: false
-      })
-      await cargarCertificados()
-      showToast('success','Metadatos guardados correctamente')
-      if (previewUrl.value){
-        downloadBlob(previewUrl.value, originalFileName.value || `certificado_${preSavedId.value}.pdf`)
-      }
-      return
-    }
-
     const id = uuidv4()
     const verifyUrl = `${location.origin}/verificar?id=${id}`
     verificationUrl.value = verifyUrl
+    // QR definitivo (reemplaza al temporal)
     qrDataUrl.value = await QRCode.toDataURL(verifyUrl, { margin:1, width:300 })
 
-    const finalBytes = await buildPdfWithQr(file.value, qrDataUrl.value) // sin rasterizar
+    const finalBytes = await buildPdfWithQr(file.value, qrDataUrl.value, qrLayout, 'top-right')
     const blob = new Blob([finalBytes], { type: "application/pdf" })
     const url = URL.createObjectURL(blob)
     previewUrl.value = url
@@ -718,14 +836,21 @@ async function procesar(){
     lastVerifyUrl.value = verifyUrl
     await cargarCertificados()
     showToast('success','Certificado generado y subido sin pérdida de calidad')
-  }catch(err){ console.error(err); showToast('danger','Error generando/guardando el PDF') }
-  finally{ loading.value=false }
+  }catch(err){
+    console.error(err)
+    showToast('danger','Error generando/guardando el PDF')
+  }finally{
+    loading.value=false
+  }
 }
 
 /* ===== Flujo lote ===== */
 async function procesarBatch(){
   if (!batchRows.value.length) return
-  if (batchRows.value.some(r => !r.categoria)) { showToast('warning','Completa categoría en todas las filas'); return }
+  if (batchRows.value.some(r => !r.categoria)) {
+    showToast('warning','Completa categoría en todas las filas')
+    return
+  }
 
   loading.value = true
   batchResults.value = []
@@ -738,9 +863,10 @@ async function procesarBatch(){
       const verifyUrl = `${location.origin}/verificar?id=${id}`
       const qrUrl = await QRCode.toDataURL(verifyUrl, { margin:1, width:300 })
 
-      const finalBytes = await buildPdfWithQr(r.file, qrUrl) // sin rasterizar
+      const finalBytes = await buildPdfWithQr(r.file, qrUrl, qrLayout, 'top-right')
 
-      const creadoLocal = new Date(); const venceLocal = addMonths(creadoLocal, 3)
+      const creadoLocal = new Date()
+      const venceLocal = addMonths(creadoLocal, 3)
       const b64 = bytesToBase64(new Uint8Array(finalBytes))
       const dataUrl = `data:application/pdf;base64,${b64}`
 
@@ -770,16 +896,24 @@ async function procesarBatch(){
         id: savedId,
         name: r.fileName || `certificado_${savedId}.pdf`,
         downloadName: r.fileName || `certificado_${savedId}.pdf`,
-        objectUrl, sizeBytes: finalBytes.byteLength, ok: true, preUploaded: false
+        objectUrl,
+        sizeBytes: finalBytes.byteLength,
+        ok: true
       })
 
       batchProgress.value.current = i+1
-      lastId.value = savedId; lastVerifyUrl.value = verifyUrl
+      lastId.value = savedId
+      lastVerifyUrl.value = verifyUrl
     }
     await cargarCertificados()
     showToast('success','Listo: certificados generados y guardados sin recomprimir')
-  }catch(e){ console.error(e); showToast('danger','Error procesando el lote') }
-  finally{ loading.value=false; showProgress.value=false }
+  }catch(e){
+    console.error(e)
+    showToast('danger','Error procesando el lote')
+  }finally{
+    loading.value=false
+    showProgress.value=false
+  }
 }
 
 async function copiarTodos(){
@@ -787,49 +921,133 @@ async function copiarTodos(){
   await copiar(links)
 }
 
-/* ===== Construcción PDF + QR (sin rasterizar) ===== */
-async function buildPdfWithQr(fileObj, qrPngDataUrl){
+// layout = { xPct, yPct, sizePct } en coordenadas de la vista previa
+// fallbackPosition se usa SOLO si no pasas layout (p.ej. en algún flujo futuro)
+async function buildPdfWithQr(fileObj, qrPngDataUrl, layout = null, fallbackPosition = 'top-right') {
   const arrayBuf = await fileObj.arrayBuffer()
-  const isPdf = fileObj.type === "application/pdf" || fileObj.name?.toLowerCase().endsWith(".pdf")
+  const isPdf =
+    fileObj.type === "application/pdf" ||
+    fileObj.name?.toLowerCase().endsWith(".pdf")
+
   let pdfDoc, pages
 
-  if (isPdf){
-    // Carga el PDF tal cual (no convierte a imagen)
+  if (isPdf) {
+    // Cargamos el PDF original tal cual (sin rasterizar ni recomprimir)
     pdfDoc = await PDFDocument.load(arrayBuf, { updateMetadata: false })
     pages = pdfDoc.getPages()
   } else {
-    // Archivo de imagen -> crear PDF con la imagen a resolución nativa
+    // Si es imagen, la incrustamos en una página del tamaño de la imagen
     pdfDoc = await PDFDocument.create()
     const ext = (fileObj.name || "").toLowerCase()
     const isPng = ext.endsWith(".png") || fileObj.type === "image/png"
-    const img = isPng ? await pdfDoc.embedPng(arrayBuf) : await pdfDoc.embedJpg(arrayBuf) // PNG sin pérdida, JPG se incrusta
+    const img = isPng
+      ? await pdfDoc.embedPng(arrayBuf)
+      : await pdfDoc.embedJpg(arrayBuf)
     const page = pdfDoc.addPage([img.width, img.height])
-    page.drawImage(img, { x:0, y:0, width:img.width, height:img.height })
+    page.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height })
     pages = pdfDoc.getPages()
   }
 
-  // Embed QR y logo en PNG (vector en PDF-lib como objeto imagen)
+  const first = pages[0]
+  const { width, height } = first.getSize()
+
+  // Cargamos QR y logo
   const qrBytes = await (await fetch(qrPngDataUrl)).arrayBuffer()
   const qrImg = await pdfDoc.embedPng(qrBytes)
 
   const logoBytes = await fetch(logoSrc).then(res => res.arrayBuffer())
   const logoImg = await pdfDoc.embedPng(logoBytes)
 
-  const first = pages[0]
-  const qrSize = 120, margin = 24
-  const { width } = first.getSize()
-  const x = width - qrSize - margin
-  const y = margin
+  let qrWidth, qrHeight, x, y
 
-  // Caja blanca detrás (para legibilidad), no afecta nitidez del contenido original
-  const pad = 12, boxW = qrSize + pad*2, boxH = qrSize + pad*2 + 50
-  first.drawRectangle({ x: x - pad, y, width: boxW, height: boxH, color: rgb(1,1,1) })
-  first.drawImage(logoImg, { x, y: y + qrSize + pad + 10, width: qrSize, height: qrSize*0.25 })
-  first.drawImage(qrImg,   { x, y: y + pad, width: qrSize, height: qrSize })
+  if (layout) {
+    // 🔹 Usar layout arrastrado (xPct, yPct, sizePct)
+    const sizePct = layout.sizePct ?? 0.18
+    qrWidth = width * sizePct
+    qrHeight = qrWidth
 
-  // Guardar sin object streams para compat; no recomprime contenido existente
-  return await pdfDoc.save({ useObjectStreams:false })
+    // xPct e yPct son el CENTRO del QR en la vista previa (0–1)
+    // x: misma proporción
+    const centerX = width * (layout.xPct ?? 0.85)
+
+    // y en HTML va desde arriba; en PDF (0,0) es abajo ⇒ invertir
+    const centerYFromTop = height * (layout.yPct ?? 0.15)
+    const centerY = height - centerYFromTop
+
+    x = centerX - qrWidth / 2
+    y = centerY - qrHeight / 2
+  } else {
+    // 🔹 Modo fijo (por si algún día no pasas layout)
+    const baseSizePct = 0.14
+    qrWidth = width * baseSizePct
+    qrHeight = qrWidth
+
+    const marginX = width * 0.035
+    const marginY = height * 0.08
+
+    switch (fallbackPosition) {
+      case 'top-right':
+        x = width - marginX - qrWidth
+        y = height - marginY - qrHeight
+        break
+      case 'bottom-right':
+        x = width - marginX - qrWidth
+        y = marginY
+        break
+      case 'top-left':
+        x = marginX
+        y = height - marginY - qrHeight
+        break
+      case 'bottom-left':
+        x = marginX
+        y = marginY
+        break
+      default:
+        x = width - marginX - qrWidth
+        y = height - marginY - qrHeight
+        break
+    }
+  }
+
+  // 🔹 Pequeño margen de seguridad para no salirnos de la página
+  const marginAbsX = width * 0.01
+  const marginAbsY = height * 0.01
+  x = Math.max(marginAbsX, Math.min(width - marginAbsX - qrWidth, x))
+  y = Math.max(marginAbsY, Math.min(height - marginAbsY - qrHeight, y))
+
+  // Fondo blanco detrás
+  const pad = qrWidth * 0.25
+  const logoHeight = qrWidth * 0.28
+  const boxW = qrWidth + pad * 2
+  const boxH = qrHeight + pad * 2 + logoHeight + 8
+
+  first.drawRectangle({
+    x: x - pad,
+    y: y - pad,
+    width: boxW,
+    height: boxH,
+    color: rgb(1, 1, 1)
+  })
+
+  // QR
+  first.drawImage(qrImg, {
+    x,
+    y,
+    width: qrWidth,
+    height: qrHeight
+  })
+
+  // Logo justo debajo del QR (si queda muy justo, puedes bajar un poco y)
+  first.drawImage(logoImg, {
+    x,
+    y: y + qrHeight + 4,
+    width: qrWidth,
+    height: logoHeight
+  })
+
+  return await pdfDoc.save({ useObjectStreams: false })
 }
+
 
 /* ===== Acciones lista ===== */
 function isVigente(row){
@@ -846,7 +1064,10 @@ async function descargar(row){
     const blob = base64ToBlob(b64, row.mimeType || "application/pdf")
     const url = URL.createObjectURL(blob)
     downloadBlob(url, row.file_name || `certificado_${row.id}.pdf`)
-  }catch(e){ console.error(e); showToast('danger','No se pudo descargar') }
+  }catch(e){
+    console.error(e)
+    showToast('danger','No se pudo descargar')
+  }
 }
 
 function pedirEliminar(row){
@@ -862,8 +1083,12 @@ async function confirmarEliminar(){
     await eliminarCertificadoSvc(row.id)
     lista.value = lista.value.filter(r => r.id !== row.id)
     showToast('success','Certificado eliminado correctamente')
-  }catch(e){ console.error(e); showToast('danger','No se pudo eliminar') }
-  finally{ deletingId.value=null }
+  }catch(e){
+    console.error(e)
+    showToast('danger','No se pudo eliminar')
+  }finally{
+    deletingId.value=null
+  }
 }
 
 function editar(row){
@@ -897,7 +1122,7 @@ async function guardarEdicion(){
         await actualizarMetadatos(editRow.value.id, { verificar_url: verifyUrl })
       }
       const qrUrl = await QRCode.toDataURL(verifyUrl, { margin:1, width:300 })
-      const newBytes = await buildPdfWithQr(editNewFile, qrUrl) // sin rasterizar
+      const newBytes = await buildPdfWithQr(editNewFile, qrUrl, qrLayout)
 
       const b64 = bytesToBase64(new Uint8Array(newBytes))
       const dataUrl = `data:application/pdf;base64,${b64}`
@@ -923,7 +1148,10 @@ async function guardarEdicion(){
   }
 }
 
-onMounted(async () => { await cargarCategorias(); await cargarCertificados() })
+onMounted(async () => {
+  await cargarCategorias()
+  await cargarCertificados()
+})
 </script>
 
 <style scoped>
