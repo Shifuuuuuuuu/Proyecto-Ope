@@ -35,8 +35,40 @@
               </label>
               <input type="file" :multiple="batchMode" accept="application/pdf,image/*" class="form-control" @change="onFile" />
               <div class="form-text">
-                Se incrustará un QR en la primera página usando la posición que definas en la vista previa,
-                sin re-comprimir el PDF original.
+                Se incrustará un QR en la primera página.
+                En modo simple puedes elegir la esquina (o arrastrarlo en la vista previa).
+                En modo lote se usará la esquina seleccionada.
+              </div>
+            </div>
+
+            <!-- Posición / Tamaño QR -->
+            <div class="col-12 col-md-4">
+              <label class="form-label">Posición del QR</label>
+              <select v-model="qrPreset" class="form-select">
+                <option value="bottom-left">Abajo izquierda (por defecto)</option>
+                <option value="bottom-right">Abajo derecha</option>
+                <option value="top-left">Arriba izquierda</option>
+                <option value="top-right">Arriba derecha</option>
+                <option value="custom">Personalizado (arrastrar en vista previa)</option>
+              </select>
+              <div class="form-text">
+                En modo lote se aplicará esta posición a todos los archivos.
+              </div>
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label">Tamaño del QR</label>
+              <input
+                type="range"
+                class="form-range"
+                min="0.08"
+                max="0.20"
+                step="0.01"
+                :value="qrLayout.sizePct"
+                @input="qrLayout.sizePct = Number($event.target.value)"
+              />
+              <div class="small text-muted">
+                Actual: <strong>{{ Math.round(qrLayout.sizePct * 100) }}%</strong> del ancho
               </div>
             </div>
 
@@ -55,98 +87,105 @@
               </div>
               <div class="col-md-6">
                 <label class="form-label">Código interno (opcional)</label>
-                <input v-model="form.codigo" @input="toUpper('codigo')" class="form-control" placeholder="DAND-CATC-L36"/>
+                <input v-model="form.codigo" @input="toUpper('codigo')" class="form-control" placeholder="ABC-123"/>
               </div>
-              <div class="col-md-6">
-                <label class="form-label">Aprobado</label>
-                <select v-model="form.aprobado" class="form-select">
-                  <option :value="true">Sí</option>
-                  <option :value="false">No</option>
-                </select>
+              <div class="col-md-6 d-flex align-items-end">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="aprobado" v-model="form.aprobado"/>
+                  <label class="form-check-label" for="aprobado">Aprobado</label>
+                </div>
               </div>
             </template>
 
-            <!-- Tabla de metadatos por archivo en lote -->
-            <div v-if="batchMode && batchRows.length" class="col-12">
+            <!-- Tabla modo lote -->
+            <div v-else class="col-12">
               <div class="table-responsive">
                 <table class="table table-sm align-middle">
-                  <thead class="table-light">
+                  <thead>
                     <tr>
-                      <th style="width: 40px;">#</th>
                       <th>Archivo</th>
-                      <th style="min-width: 200px;">Categoría</th>
-                      <th style="min-width: 180px;">Equipo</th>
-                      <th style="min-width: 140px;">Código</th>
-                      <th style="min-width: 120px;">Aprobado</th>
+                      <th>Categoría</th>
+                      <th>Equipo</th>
+                      <th>Código</th>
+                      <th>Aprobado</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="(r,i) in batchRows" :key="r.key">
-                      <td><span class="badge text-bg-secondary">{{ i+1 }}</span></td>
-                      <td>
-                        <div class="fw-semibold text-break">{{ r.fileName }}</div>
+                    <tr v-for="r in batchRows" :key="r.key">
+                      <td class="text-break">
+                        <div class="fw-semibold">{{ r.fileName }}</div>
                         <div class="small text-muted">{{ humanSize(r.sizeBytes) }}</div>
                       </td>
-                      <td>
-                        <select class="form-select form-select-sm" v-model="r.categoria">
-                          <option value="" disabled>— Seleccionar —</option>
+                      <td style="min-width:180px">
+                        <select v-model="r.categoria" class="form-select form-select-sm">
+                          <option value="" disabled>Selecciona</option>
                           <option v-for="c in categorias" :key="c" :value="c">{{ c }}</option>
                         </select>
                       </td>
-                      <td>
-                        <input
-                          class="form-control form-control-sm"
-                          v-model.trim="r.equipo"
-                          @input="r.equipo=r.equipo.toUpperCase()"
-                          placeholder="MIXER 1234"
-                        />
+                      <td style="min-width:160px">
+                        <input v-model="r.equipo" @input="r.equipo = (r.equipo || '').toUpperCase()" class="form-control form-control-sm" placeholder="JPWL-36"/>
                       </td>
-                      <td>
-                        <input
-                          class="form-control form-control-sm"
-                          v-model.trim="r.codigo"
-                          @input="r.codigo=r.codigo.toUpperCase()"
-                          placeholder="XT-0001"
-                        />
+                      <td style="min-width:160px">
+                        <input v-model="r.codigo" @input="r.codigo = (r.codigo || '').toUpperCase()" class="form-control form-control-sm" placeholder="ABC-123"/>
                       </td>
-                      <td>
-                        <select class="form-select form-select-sm" v-model="r.aprobado">
-                          <option :value="true">Sí</option>
-                          <option :value="false">No</option>
-                        </select>
+                      <td style="min-width:110px">
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" v-model="r.aprobado"/>
+                          <label class="form-check-label">Sí</label>
+                        </div>
                       </td>
+                    </tr>
+                    <tr v-if="!batchRows.length">
+                      <td colspan="5" class="text-muted small">Selecciona archivos para preparar el lote.</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
-              <small class="text-muted">Completa categoría (obligatoria) por cada archivo.</small>
+
+              <div v-if="batchRows.length" class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div class="small text-muted">
+                  Total: <strong>{{ batchRows.length }}</strong> archivos
+                </div>
+                <div class="small text-muted" v-if="batchProgress.total">
+                  Progreso: <strong>{{ batchProgress.current }}</strong> / {{ batchProgress.total }}
+                </div>
+              </div>
             </div>
 
-            <!-- Botones -->
-            <div class="col-12 d-flex gap-2 align-items-center">
-              <button class="btn btn-primary" :disabled="btnDisabled">
-                <span v-if="!loading">{{ batchMode ? 'Generar, trocear y guardar (lote)' : 'Guardar metadatos / descargar' }}</span>
-                <span v-else class="spinner-border spinner-border-sm"></span>
-              </button>
-              <button type="button" class="btn btn-outline-secondary" @click="limpiar" :disabled="loading">Limpiar</button>
-
-              <div v-if="batchMode && loading" class="ms-auto small text-muted">
-                Procesando {{ batchProgress.current }} / {{ batchProgress.total }}
+            <!-- Progreso -->
+            <div v-if="showProgress" class="col-12">
+              <div class="border rounded p-3 bg-light">
+                <div class="d-flex align-items-center justify-content-between">
+                  <div class="small text-muted">{{ progress.detail }}</div>
+                  <div class="small text-muted">{{ progress.stage }}</div>
+                </div>
+                <div class="progress mt-2" style="height:10px">
+                  <div class="progress-bar" role="progressbar" :style="{width: `${progress.pct}%`}"></div>
+                </div>
               </div>
+            </div>
+
+            <!-- Acciones -->
+            <div class="col-12 d-flex gap-2 flex-wrap">
+              <button class="btn btn-primary" type="submit" :disabled="btnDisabled">
+                <span v-if="loading" class="spinner-border spinner-border-sm me-2"></span>
+                {{ batchMode ? 'Generar lote' : 'Generar certificado' }}
+              </button>
+              <button class="btn btn-outline-secondary" type="button" @click="limpiar" :disabled="loading">
+                Limpiar
+              </button>
             </div>
           </div>
         </form>
 
-        <hr class="my-4" />
-
-        <!-- Vista previa (modo 1 a 1) -->
-        <div v-if="!batchMode && previewUrl" class="mt-3">
-          <h6 class="text-muted">Vista previa (primera página):</h6>
+        <!-- Vista previa (solo modo simple) -->
+        <div v-if="!batchMode && previewUrl" class="mt-4">
+          <h6 class="mb-2">Vista previa (arrastra el QR si quieres posición personalizada)</h6>
 
           <div
             ref="previewWrapper"
-            class="position-relative border"
-            style="height: 420px; overflow: hidden;"
+            class="border rounded overflow-hidden position-relative"
+            style="height: 520px; background: #f8f9fa; overflow: hidden;"
           >
             <embed
               :src="previewUrl"
@@ -179,7 +218,7 @@
 
         <div v-if="!batchMode && qrDataUrl && verificationUrl" class="mt-4">
           <h6 class="text-muted">QR generado (último certificado):</h6>
-          <img :src="qrDataUrl" alt="QR" style="width: 160px; height: 160px" />
+          <img :src="qrDataUrl" alt="QR" style="width: 130px; height: 130px" />
           <div class="small text-break mt-2">{{ verificationUrl }}</div>
         </div>
 
@@ -230,51 +269,36 @@
       </div>
     </div>
 
-    <!-- LISTA DE CERTIFICADOS -->
+    <!-- Listado de certificados existentes -->
     <div class="card shadow-sm mt-4">
-      <div class="card-body">
-        <!-- Controles -->
-        <div class="row g-2 align-items-end mb-3">
-          <div class="col-12 col-md-4">
-            <label class="form-label mb-1">Buscar por equipo</label>
-            <div class="input-group">
-              <span class="input-group-text"><i class="bi bi-search"></i></span>
-              <input v-model.trim="searchEquipo" class="form-control" placeholder="Ej: MIXER 1234" @input="onSearchChanged" />
-              <button class="btn btn-outline-secondary" @click="clearSearch" :disabled="!searchEquipo">Limpiar</button>
-            </div>
-          </div>
-
-          <div class="col-6 col-md-3">
-            <label class="form-label mb-1">Categoría</label>
-            <select class="form-select" v-model="filtroCategoria">
-              <option value="">Todas</option>
-              <option v-for="c in categorias" :key="c" :value="c">{{ c }}</option>
-            </select>
-          </div>
-
-          <div class="col-6 col-md-2">
-            <label class="form-label mb-1">Mostrar</label>
-            <select class="form-select" v-model.number="pageSize">
-              <option :value="10">10</option>
-              <option :value="25">25</option>
-              <option :value="50">50</option>
-              <option :value="100">100</option>
-            </select>
-          </div>
-
-          <div class="col-12 col-md-3 d-flex gap-2">
-            <button class="btn btn-outline-secondary w-100" @click="cargarCertificados" :disabled="loadingList">
-              <span v-if="!loadingList">Actualizar</span>
-              <span v-else class="spinner-border spinner-border-sm"></span>
-            </button>
-            <button class="btn btn-outline-primary w-100" @click="mostrarMas" :disabled="loadingList || pageSize>=100">
-              Mostrar más
-            </button>
-          </div>
+      <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-2">
+          <img :src="logoSrc" alt="logo" style="height: 28px" />
+          <strong>Certificados guardados</strong>
         </div>
 
-        <!-- Tabla -->
-        <div class="table-responsive">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <select v-model="filtroCategoria" class="form-select form-select-sm" style="width: 220px">
+            <option value="">Todas las categorías</option>
+            <option v-for="c in categorias" :key="c" :value="c">{{ c }}</option>
+          </select>
+
+          <select v-model.number="pageSize" class="form-select form-select-sm" style="width: 140px">
+            <option :value="10">10</option>
+            <option :value="20">20</option>
+            <option :value="50">50</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <div v-if="loadingList" class="text-muted small">Cargando…</div>
+
+        <div v-else-if="paged.length === 0" class="text-muted small">
+          No hay certificados.
+        </div>
+
+        <div v-else class="table-responsive">
           <table class="table table-sm align-middle">
             <thead>
               <tr>
@@ -282,89 +306,84 @@
                 <th>Categoría</th>
                 <th>Equipo</th>
                 <th>Código</th>
-                <th>Creado</th>
                 <th>Vence</th>
-                <th>Estado</th>
-                <th style="width: 280px;">Acciones</th>
+                <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in paginados" :key="row.id">
-                <td class="text-break">{{ row.file_name || ('certificado_'+row.id+'.pdf') }}</td>
-                <td>{{ row.categoria || '—' }}</td>
-                <td><span class="fw-semibold">{{ row.equipo || '—' }}</span></td>
-                <td>{{ row.codigo || '—' }}</td>
-                <td>{{ fechaLocal(row.creado?.toDate?.() || row.creado) }}</td>
-                <td>{{ fechaLocal(row.fecha_vencimiento?.toDate?.() || row.fecha_vencimiento) }}</td>
+              <tr v-for="c in paged" :key="c.id">
+                <td class="text-break">
+                  <div class="fw-semibold">{{ c.file_name || `certificado_${c.id}.pdf` }}</div>
+                  <div class="small text-muted">{{ c.id }}</div>
+                </td>
+                <td>{{ c.categoria || "-" }}</td>
+                <td>{{ c.equipo || "-" }}</td>
+                <td>{{ c.codigo || "-" }}</td>
+                <td>{{ fmtDate(c.fecha_vencimiento) }}</td>
                 <td>
-                  <span class="badge" :class="isVigente(row) ? 'bg-success' : 'bg-danger'">
-                    {{ isVigente(row) ? 'Vigente' : 'No vigente' }}
-                  </span>
+                  <div class="d-flex gap-2 flex-wrap">
+                    <button class="btn btn-outline-secondary btn-sm" @click="ver(c)">
+                      Ver
+                    </button>
+                    <router-link class="btn btn-success btn-sm" :to="`/verificar?id=${c.id}`">
+                      Verificar
+                    </router-link>
+                    <button class="btn btn-outline-primary btn-sm" @click="descargar(c)">
+                      Descargar
+                    </button>
+                    <button class="btn btn-outline-warning btn-sm" @click="abrirEditar(c)">
+                      Editar
+                    </button>
+                    <button class="btn btn-outline-danger btn-sm" @click="abrirEliminar(c)">
+                      Eliminar
+                    </button>
+                  </div>
                 </td>
-                <td class="d-flex flex-wrap gap-1">
-                  <router-link class="btn btn-success btn-sm me-1" :to="`/verificar?id=${row.id}`">Probar</router-link>
-                  <button class="btn btn-outline-primary btn-sm me-1" @click="descargar(row)">Descargar</button>
-                  <button class="btn btn-outline-warning btn-sm me-1" @click="editar(row)">Editar</button>
-                  <button class="btn btn-outline-danger btn-sm" @click="pedirEliminar(row)" :disabled="deletingId===row.id">
-                    <span v-if="deletingId!==row.id">Eliminar</span>
-                    <span v-else class="spinner-border spinner-border-sm"></span>
-                  </button>
-                </td>
-              </tr>
-              <tr v-if="paginados.length===0">
-                <td colspan="8" class="text-center text-muted py-3">No hay certificados para mostrar.</td>
               </tr>
             </tbody>
           </table>
         </div>
 
         <!-- Paginación -->
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
           <div class="small text-muted">
-            Mostrando {{ rangoInicio }}–{{ rangoFin }} de {{ filtrados.length }}
-            <span v-if="searchEquipo"> • filtro equipo: <strong>{{ searchEquipo }}</strong></span>
-            <span v-if="filtroCategoria"> • categoría: <strong>{{ filtroCategoria }}</strong></span>
+            Mostrando {{ paged.length }} de {{ filtered.length }}
           </div>
-          <nav aria-label="Paginación" class="d-flex align-items-center gap-1">
-            <button class="btn btn-outline-secondary btn-sm" :disabled="page===1" @click="page=1">«</button>
-            <button class="btn btn-outline-secondary btn-sm" :disabled="page===1" @click="page--">Anterior</button>
-            <span class="mx-2 small">Página <strong>{{ page }}</strong> de <strong>{{ totalPages }}</strong></span>
-            <button class="btn btn-outline-secondary btn-sm" :disabled="page===totalPages" @click="page++">Siguiente</button>
-            <button class="btn btn-outline-secondary btn-sm" :disabled="page===totalPages" @click="page=totalPages">»</button>
-          </nav>
-        </div>
-      </div>
-    </div>
 
-    <!-- MODAL PROGRESO -->
-    <div class="modal fade show d-block" tabindex="-1" role="dialog" v-if="showProgress" style="background: rgba(0,0,0,.35);">
-      <div class="modal-dialog modal-sm modal-dialog-centered">
-        <div class="modal-content">
-          <div class="modal-body">
-            <div class="d-flex align-items-center gap-2 mb-2">
-              <div class="spinner-border" role="status" v-if="progress.pct<100"></div>
-              <strong>
-                {{ progress.stage === 'uploading' ? 'Subiendo…' :
-                   progress.stage === 'optimizing' ? 'Optimizando…' :
-                   progress.stage === 'reading' ? 'Leyendo…' : 'Procesando…' }}
-              </strong>
-            </div>
-            <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
-              <div class="progress-bar" :style="{width: progress.pct + '%'}">{{ progress.pct }}%</div>
-            </div>
-            <div class="small text-muted mt-2" v-if="progress.detail">{{ progress.detail }}</div>
-            <div class="small text-danger mt-2" v-if="pdfJsError">⚠️ {{ pdfJsError }}</div>
+          <div class="btn-group">
+            <button class="btn btn-outline-secondary btn-sm" @click="prevPage" :disabled="page<=1">Anterior</button>
+            <button class="btn btn-outline-secondary btn-sm" @click="nextPage" :disabled="page>=maxPage">Siguiente</button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- MODAL EDICIÓN -->
-    <div class="modal fade show d-block" tabindex="-1" role="dialog" v-if="showEdit" style="background: rgba(0,0,0,.35);">
-      <div class="modal-dialog">
-        <div class="modal-content">
+    <!-- MODAL VER PDF -->
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" v-if="showViewer" style="background: rgba(0,0,0,0.35);">
+      <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
           <div class="modal-header">
-            <h6 class="modal-title">Editar certificado</h6>
+            <h5 class="modal-title">Vista del certificado</h5>
+            <button type="button" class="btn-close" @click="closeViewer"></button>
+          </div>
+          <div class="modal-body p-0">
+            <div style="height:80vh;">
+              <embed :src="viewerUrl" type="application/pdf" class="w-100 h-100"/>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" @click="closeViewer">Cerrar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL EDITAR -->
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" v-if="showEdit" style="background: rgba(0,0,0,0.35);">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+          <div class="modal-header">
+            <h5 class="modal-title">Editar certificado</h5>
             <button type="button" class="btn-close" @click="showEdit=false"></button>
           </div>
           <div class="modal-body">
@@ -372,29 +391,25 @@
               <div class="col-md-6">
                 <label class="form-label">Categoría</label>
                 <select v-model="editForm.categoria" class="form-select">
-                  <option value="" disabled>Selecciona</option>
+                  <option value="" disabled>Selecciona categoría</option>
                   <option v-for="c in categorias" :key="c" :value="c">{{ c }}</option>
                 </select>
               </div>
               <div class="col-md-6">
-                <label class="form-label">Aprobado</label>
-                <select v-model="editForm.aprobado" class="form-select">
-                  <option :value="true">Sí</option>
-                  <option :value="false">No</option>
-                </select>
-              </div>
-              <div class="col-md-6">
                 <label class="form-label">Equipo</label>
-                <input v-model="editForm.equipo" class="form-control" />
+                <input v-model="editForm.equipo" @input="editForm.equipo=(editForm.equipo||'').toUpperCase()" class="form-control"/>
               </div>
               <div class="col-md-6">
                 <label class="form-label">Código</label>
-                <input v-model="editForm.codigo" class="form-control" />
+                <input v-model="editForm.codigo" @input="editForm.codigo=(editForm.codigo||'').toUpperCase()" class="form-control"/>
               </div>
-              <div class="col-md-6">
-                <label class="form-label">Vence (ISO)</label>
-                <input v-model="editForm.fecha_vencimiento" class="form-control" placeholder="YYYY-MM-DD o ISO" />
+              <div class="col-md-6 d-flex align-items-end">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" v-model="editForm.aprobado"/>
+                  <label class="form-check-label">Aprobado</label>
+                </div>
               </div>
+
               <div class="col-12">
                 <label class="form-label">Reemplazar archivo (opcional)</label>
                 <input
@@ -416,7 +431,7 @@
     </div>
 
     <!-- MODAL CONFIRMACIÓN ELIMINAR -->
-    <div class="modal fade show d-block" tabindex="-1" role="dialog" v-if="showConfirm" style="background: rgba(0,0,0,.35);">
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" v-if="showConfirm" style="background: rgba(0,0,0,35);">
       <div class="modal-dialog modal-sm modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
           <div class="modal-body text-center p-4">
@@ -475,89 +490,188 @@ import {
   listarCertificados,
   eliminarCertificado as eliminarCertificadoSvc,
   actualizarMetadatos,
-  reemplazarArchivo
 } from "@/services/certificadosService"
 
-/* ===== Estado ===== */
-const batchMode = ref(false)
-const files = ref([])
-const file = ref(null)
+/* ===== Estado UI ===== */
+const categorias = ref([])
 const loading = ref(false)
+const loadingList = ref(false)
+
+const file = ref(null)
+const files = ref([]) // (no usado, pero mantenido)
 const previewUrl = ref(null)
-const bytesFinal = ref(0)
-const qrDataUrl = ref(null)
-const verificationUrl = ref("")
 const originalFileName = ref("")
-const lastId = ref(null)
+
+const lastId = ref("")
 const lastVerifyUrl = ref("")
+const verificationUrl = ref("")
 
-// contenedor de la vista previa para el drag
-const previewWrapper = ref(null)
+const bytesFinal = ref(0)
 
-// layout del QR en porcentajes (0–1)
-const qrLayout = reactive({
-  xPct: 0.85,   // 0 = izquierda, 1 = derecha
-  yPct: 0.15,   // 0 = arriba, 1 = abajo
-  sizePct: 0.18 // ancho del QR como % del ancho de la página
+const form = reactive({
+  categoria: "",
+  equipo: "",
+  codigo: "",
+  aprobado: true,
 })
 
-const draggingQr = ref(false)
-const dragOffset = reactive({ x: 0, y: 0 })
-
-const qrOverlayStyle = computed(() => ({
-  position: 'absolute',
-  left: `${qrLayout.xPct * 100}%`,
-  top: `${qrLayout.yPct * 100}%`,
-  transform: 'translate(-50%, -50%)',
-  width: `${qrLayout.sizePct * 100}%`,
-  aspectRatio: '1 / 1',
-  cursor: 'move',
-  boxShadow: '0 0 0 2px rgba(0,0,0,.3)',
-  borderRadius: '4px',
-  background: '#fff'
-}))
-
+/* ===== Modo lote ===== */
+const batchMode = ref(false)
 const batchRows = ref([])
 const batchResults = ref([])
 const batchProgress = ref({ current: 0, total: 0 })
 
-// progreso modal
+/* ===== Progreso ===== */
 const showProgress = ref(false)
-const progress = ref({ stage: 'reading', pct: 0, detail: '' })
-const pdfJsError = ref("") // mantenido para compat
+const progress = ref({ stage: "idle", pct: 0, detail: "" })
 
-// Modal de edición
-const showEdit = ref(false)
-const editRow = ref(null)
-const editForm = reactive({ categoria:'', equipo:'', codigo:'', aprobado:true, fecha_vencimiento:'' })
-let editNewFile = null
+/* ===== Vista previa QR draggable ===== */
+const qrDataUrl = ref(null)
+const previewWrapper = ref(null)
 
-// Confirmación eliminar
-const showConfirm = ref(false)
-const pendingDeleteRow = ref(null)
+const draggingQr = ref(false)
+const dragOffset = ref({ x: 0, y: 0 })
 
-// Categorías y lista
-const categorias = ref([])
-const filtroCategoria = ref("")
+const DEFAULT_QR_PRESET = 'bottom-left'
+const DEFAULT_QR_SIZE_PCT = 0.12
+
+const qrPreset = ref(DEFAULT_QR_PRESET)
+
+// layout del QR en porcentajes (0–1). xPct/yPct representan el CENTRO del QR en la vista previa
+const qrLayout = reactive({
+  xPct: 0.12,   // 0 = izquierda, 1 = derecha
+  yPct: 0.88,   // 0 = arriba, 1 = abajo
+  sizePct: DEFAULT_QR_SIZE_PCT // ancho del QR como % del ancho de la página
+})
+
+const QR_PRESETS = {
+  'top-left':     { xPct: 0.12, yPct: 0.12 },
+  'top-right':    { xPct: 0.88, yPct: 0.12 },
+  'bottom-left':  { xPct: 0.12, yPct: 0.88 },
+  'bottom-right': { xPct: 0.88, yPct: 0.88 },
+}
+
+function applyQrPreset(preset) {
+  if (preset === 'custom') return
+  const p = QR_PRESETS[preset] || QR_PRESETS[DEFAULT_QR_PRESET]
+  qrLayout.xPct = p.xPct
+  qrLayout.yPct = p.yPct
+}
+
+function resetQrLayout() {
+  qrPreset.value = DEFAULT_QR_PRESET
+  qrLayout.sizePct = DEFAULT_QR_SIZE_PCT
+  applyQrPreset(DEFAULT_QR_PRESET)
+}
+
+// cuando el usuario cambia el selector, aplicamos la esquina
+watch(qrPreset, (p) => applyQrPreset(p))
+
+const qrOverlayStyle = computed(() => {
+  return {
+    position: "absolute",
+    left: `${qrLayout.xPct * 100}%`,
+    top: `${qrLayout.yPct * 100}%`,
+    width: `${qrLayout.sizePct * 100}%`,
+    height: `${qrLayout.sizePct * 100}%`,
+    transform: "translate(-50%, -50%)",
+    cursor: "move",
+    border: "2px dashed rgba(220,53,69,0.7)",
+    borderRadius: "10px",
+    background: "rgba(255,255,255,0.35)",
+    padding: "4px",
+    userSelect: "none",
+    boxSizing: "border-box",
+    zIndex: 5
+  }
+})
+
+function startDragQr(event) {
+  if (!previewWrapper.value) return
+  // si lo mueves manualmente, queda como personalizado
+  qrPreset.value = 'custom'
+  draggingQr.value = true
+
+  const wrapperRect = previewWrapper.value.getBoundingClientRect()
+  const qrCenterX = wrapperRect.left + wrapperRect.width * qrLayout.xPct
+  const qrCenterY = wrapperRect.top + wrapperRect.height * qrLayout.yPct
+
+  dragOffset.value = {
+    x: event.clientX - qrCenterX,
+    y: event.clientY - qrCenterY,
+  }
+
+  window.addEventListener("mousemove", onDragQr)
+  window.addEventListener("mouseup", stopDragQr)
+}
+
+function onDragQr(event) {
+  if (!draggingQr.value || !previewWrapper.value) return
+
+  const rect = previewWrapper.value.getBoundingClientRect()
+  const x = event.clientX - rect.left - dragOffset.value.x
+  const y = event.clientY - rect.top - dragOffset.value.y
+
+  const xPct = x / rect.width
+  const yPct = y / rect.height
+
+  // clamp
+  const margin = 0.05
+  qrLayout.xPct = Math.min(1 - margin, Math.max(margin, xPct))
+  qrLayout.yPct = Math.min(1 - margin, Math.max(margin, yPct))
+}
+
+function stopDragQr() {
+  draggingQr.value = false
+  window.removeEventListener("mousemove", onDragQr)
+  window.removeEventListener("mouseup", stopDragQr)
+}
+
+/* ===== Toasts ===== */
+const toasts = ref([])
+function showToast(variant, msg){
+  const id = `${Date.now()}_${Math.random().toString(36).slice(2,8)}`
+  toasts.value.push({ id, variant, msg })
+  setTimeout(()=> closeToast(id), 3800)
+}
+function closeToast(id){
+  toasts.value = toasts.value.filter(t => t.id !== id)
+}
+function toastClass(v){
+  if (v === "success") return "bg-success"
+  if (v === "danger") return "bg-danger"
+  if (v === "warning") return "bg-warning text-dark"
+  return "bg-secondary"
+}
+function toastIcon(v){
+  if (v === "success") return "bi bi-check-circle-fill"
+  if (v === "danger") return "bi bi-x-circle-fill"
+  if (v === "warning") return "bi bi-exclamation-triangle-fill"
+  return "bi bi-info-circle-fill"
+}
+
+/* ===== Listado certificados ===== */
 const lista = ref([])
-const loadingList = ref(false)
-const deletingId = ref(null)
-
-// Búsqueda por equipo + paginación
-const searchEquipo = ref("")
+const filtroCategoria = ref("")
 const page = ref(1)
 const pageSize = ref(10)
 
-const form = reactive({ categoria: "", equipo: "", codigo: "", aprobado: true })
-
-const btnDisabled = computed(() => {
-  if (loading.value) return true
-  if (batchMode.value) {
-    if (!batchRows.value.length) return true
-    return batchRows.value.some(r => !r.categoria)
-  }
-  return !file.value || !form.categoria
+const filtered = computed(() => {
+  if (!filtroCategoria.value) return lista.value
+  return lista.value.filter(c => (c.categoria || "") === filtroCategoria.value)
 })
+const maxPage = computed(() => Math.max(1, Math.ceil(filtered.value.length / pageSize.value)))
+const paged = computed(() => {
+  const start = (page.value - 1) * pageSize.value
+  return filtered.value.slice(start, start + pageSize.value)
+})
+
+function prevPage(){
+  page.value = Math.max(1, page.value - 1)
+}
+function nextPage(){
+  page.value = Math.min(maxPage.value, page.value + 1)
+}
 
 watch(batchMode, () => {
   files.value = []
@@ -568,162 +682,86 @@ watch(batchMode, () => {
   verificationUrl.value = ""
   batchResults.value = []
   batchRows.value = []
-  // reset layout por si acaso
-  qrLayout.xPct = 0.85
-  qrLayout.yPct = 0.15
-  qrLayout.sizePct = 0.18
+
+  // mantenemos el tamaño/posición seleccionados; si es un preset, lo re-aplicamos
+  if (qrPreset.value !== 'custom') applyQrPreset(qrPreset.value)
 })
 
 watch([filtroCategoria, pageSize, lista], () => { page.value = 1 })
 
 /* ===== Helpers ===== */
 function toUpper(field) { form[field] = (form[field] || "").toUpperCase() }
-function fechaLocal(d) {
-  try {
-    const dt = d instanceof Date ? d : new Date(d)
-    return dt.toLocaleDateString() + " " + dt.toLocaleTimeString()
-  } catch {
-    return "—"
+function humanSize(n){
+  if (!n && n !== 0) return "-"
+  if (n < 1024) return `${n} B`
+  if (n < 1024*1024) return `${(n/1024).toFixed(1)} KB`
+  return `${(n/(1024*1024)).toFixed(2)} MB`
+}
+function fmtDate(iso){
+  if (!iso) return "-"
+  try{
+    const d = new Date(iso)
+    return d.toLocaleDateString("es-CL", { year:"numeric", month:"2-digit", day:"2-digit" })
+  }catch{
+    return "-"
   }
 }
-function addMonths(date, months) { const d = new Date(date); d.setMonth(d.getMonth() + months); return d }
+function downloadBlob(url, filename){
+  const a = document.createElement("a")
+  a.href = url
+  a.download = filename || "archivo.pdf"
+  a.click()
+}
+async function copiar(text){
+  try{
+    await navigator.clipboard.writeText(text)
+    showToast("success","Copiado")
+  }catch{
+    showToast("warning","No se pudo copiar")
+  }
+}
 function bytesToBase64(bytes) {
-  let binary = ""; const chunk = 0x8000
-  for (let i = 0; i < bytes.length; i += chunk) {
-    const sub = bytes.subarray(i, i + chunk)
-    binary += String.fromCharCode.apply(null, sub)
+  let binary = ""
+  const len = bytes.byteLength
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i])
   }
   return btoa(binary)
 }
-function base64ToBlob(b64, type="application/pdf") {
-  const binary = atob(b64); const len = binary.length
-  const bytes = new Uint8Array(len)
-  for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i)
-  return new Blob([bytes], { type })
-}
-async function copiar(text) {
-  try { await navigator.clipboard.writeText(text); showToast('success','Link copiado al portapapeles') }
-  catch(e){ console.error(e); showToast('warning','No se pudo copiar. Copia manualmente el texto.') }
-}
-function humanSize(n) {
-  if (n===0) return "0 B"
-  if (!n) return "—"
-  const u=["B","KB","MB"]; let i=0, x=n
-  while(x>=1024&&i<u.length-1){x/=1024;i++}
-  return `${x.toFixed(2)} ${u[i]}`
-}
-function downloadBlob(url, filename){
-  const a=document.createElement("a")
-  a.href=url
-  a.download=filename
-  a.click()
-  setTimeout(()=>URL.revokeObjectURL(url),10_000)
+function addMonths(date, months){
+  const d = new Date(date)
+  d.setMonth(d.getMonth() + months)
+  return d
 }
 
-/* ===== Drag & drop del QR en la vista previa ===== */
-function startDragQr(event) {
-  if (!previewWrapper.value) return
-  draggingQr.value = true
-
-  const wrapperRect = previewWrapper.value.getBoundingClientRect()
-  dragOffset.x = event.clientX - wrapperRect.left
-  dragOffset.y = event.clientY - wrapperRect.top
-
-  window.addEventListener('mousemove', onDragQr)
-  window.addEventListener('mouseup', stopDragQr)
-}
-
-function onDragQr(event) {
-  if (!draggingQr.value || !previewWrapper.value) return
-
-  const rect = previewWrapper.value.getBoundingClientRect()
-  let x = event.clientX - rect.left
-  let y = event.clientY - rect.top
-
-  let xPct = x / rect.width
-  let yPct = y / rect.height
-
-  const margin = 0.05
-  xPct = Math.max(margin, Math.min(1 - margin, xPct))
-  yPct = Math.max(margin, Math.min(1 - margin, yPct))
-
-  qrLayout.xPct = xPct
-  qrLayout.yPct = yPct
-}
-
-function stopDragQr() {
-  draggingQr.value = false
-  window.removeEventListener('mousemove', onDragQr)
-  window.removeEventListener('mouseup', stopDragQr)
-}
-
-/* ===== Toasts ===== */
-const toasts = ref([])
-function showToast(variant, msg, timeout=3500){
-  const id = Math.random().toString(36).slice(2,9)
-  toasts.value.push({ id, variant, msg })
-  setTimeout(()=> closeToast(id), timeout)
-}
-function closeToast(id){
-  toasts.value = toasts.value.filter(t => t.id !== id)
-}
-function toastClass(v){
-  return {
-    'bg-success': v==='success',
-    'bg-danger': v==='danger',
-    'bg-warning': v==='warning',
-    'bg-info': v==='info',
-  }
-}
-function toastIcon(v){
-  switch(v){
-    case 'success': return 'bi bi-check-circle-fill'
-    case 'danger': return 'bi bi-x-circle-fill'
-    case 'warning': return 'bi bi-exclamation-triangle-fill'
-    default: return 'bi bi-info-circle-fill'
-  }
-}
-
-/* ===== Categorías / Lista ===== */
+/* ===== Load categorías ===== */
 async function cargarCategorias(){
   try{
-    const snap=await getDocs(collection(db,"categorias"))
-    categorias.value = snap.docs
-      .map(d => (d.data()?.nombre || "").toString())
-      .filter(Boolean)
-      .sort()
-  }catch{
-    categorias.value=[]
+    const snap = await getDocs(collection(db, "categorias"))
+    const arr = []
+    snap.forEach(doc => {
+      const data = doc.data()
+      if (data?.nombre) arr.push(data.nombre)
+      else if (doc.id) arr.push(doc.id)
+    })
+    categorias.value = arr.sort((a,b)=>a.localeCompare(b))
+  }catch(e){
+    console.error(e)
+    categorias.value = []
   }
 }
-async function cargarCertificados(){
-  loadingList.value=true
-  try{
-    lista.value = await listarCertificados(1000)
-  }catch(e){ console.error(e) }
-  finally{ loadingList.value=false }
-}
-const filtrados = computed(()=>{
-  const term = (searchEquipo.value || "").trim().toUpperCase()
-  return lista.value.filter(r => {
-    const byCat = (filtroCategoria.value ? r.categoria===filtroCategoria.value : true)
-    const byEquipo = term ? (r.equipo || '').toUpperCase().includes(term) : true
-    return byCat && byEquipo
-  })
-})
-const totalPages = computed(()=> Math.max(1, Math.ceil(filtrados.value.length / pageSize.value)))
-const paginados = computed(()=>{
-  const start = (page.value - 1) * pageSize.value
-  return filtrados.value.slice(start, start + pageSize.value)
-})
-const rangoInicio = computed(()=> filtrados.value.length ? ( (page.value-1)*pageSize.value + 1 ) : 0)
-const rangoFin = computed(()=> Math.min(page.value*pageSize.value, filtrados.value.length))
 
-function onSearchChanged(){ page.value = 1 }
-function clearSearch(){ searchEquipo.value = ""; page.value = 1 }
-function mostrarMas(){
-  pageSize.value = Math.min( (pageSize.value + 10), 100 )
-  page.value = 1
+/* ===== Load certificados ===== */
+async function cargarCertificados(){
+  loadingList.value = true
+  try{
+    lista.value = await listarCertificados()
+  }catch(e){
+    console.error(e)
+    lista.value = []
+  }finally{
+    loadingList.value = false
+  }
 }
 
 /* ===== Input file ===== */
@@ -748,9 +786,9 @@ async function onFile(e){
     verificationUrl.value = ""
 
     // reset layout
-    qrLayout.xPct = 0.85
-    qrLayout.yPct = 0.15
-    qrLayout.sizePct = 0.18
+    // volvemos al preset seleccionado (por defecto abajo-izquierda)
+    if (qrPreset.value !== 'custom') applyQrPreset(qrPreset.value)
+    qrLayout.sizePct = qrLayout.sizePct ?? DEFAULT_QR_SIZE_PCT
 
     if (previewUrl.value) {
       URL.revokeObjectURL(previewUrl.value)
@@ -784,9 +822,7 @@ function limpiar(){
   form.aprobado=true
   batchResults.value=[]
   batchRows.value=[]
-  qrLayout.xPct = 0.85
-  qrLayout.yPct = 0.15
-  qrLayout.sizePct = 0.18
+  resetQrLayout()
 }
 
 async function procesar(){
@@ -804,7 +840,7 @@ async function procesar(){
     // QR definitivo (reemplaza al temporal)
     qrDataUrl.value = await QRCode.toDataURL(verifyUrl, { margin:1, width:300 })
 
-    const finalBytes = await buildPdfWithQr(file.value, qrDataUrl.value, qrLayout, 'top-right')
+    const finalBytes = await buildPdfWithQr(file.value, qrDataUrl.value, qrLayout, qrPreset.value)
     const blob = new Blob([finalBytes], { type: "application/pdf" })
     const url = URL.createObjectURL(blob)
     previewUrl.value = url
@@ -848,13 +884,13 @@ async function procesar(){
 async function procesarBatch(){
   if (!batchRows.value.length) return
   if (batchRows.value.some(r => !r.categoria)) {
-    showToast('warning','Completa categoría en todas las filas')
+    showToast('warning','Completa categoría para todos los archivos del lote')
     return
   }
 
   loading.value = true
-  batchResults.value = []
   batchProgress.value = { current:0, total: batchRows.value.length }
+  batchResults.value = []
 
   try{
     for (let i=0;i<batchRows.value.length;i++){
@@ -863,7 +899,7 @@ async function procesarBatch(){
       const verifyUrl = `${location.origin}/verificar?id=${id}`
       const qrUrl = await QRCode.toDataURL(verifyUrl, { margin:1, width:300 })
 
-      const finalBytes = await buildPdfWithQr(r.file, qrUrl, qrLayout, 'top-right')
+      const finalBytes = await buildPdfWithQr(r.file, qrUrl, qrLayout, qrPreset.value)
 
       const creadoLocal = new Date()
       const venceLocal = addMonths(creadoLocal, 3)
@@ -922,242 +958,284 @@ async function copiarTodos(){
 }
 
 // layout = { xPct, yPct, sizePct } en coordenadas de la vista previa
-// fallbackPosition se usa SOLO si no pasas layout (p.ej. en algún flujo futuro)
-async function buildPdfWithQr(fileObj, qrPngDataUrl, layout = null, fallbackPosition = 'top-right') {
-  const arrayBuf = await fileObj.arrayBuffer()
+// layout = { xPct, yPct, sizePct } en coordenadas de la vista previa
+// fallbackPosition se usa SOLO si no pasas layout
+async function buildPdfWithQr(fileObj, qrPngDataUrl, layout = null, fallbackPosition = DEFAULT_QR_PRESET) {
+  const arrayBuffer = await fileObj.arrayBuffer()
   const isPdf =
     fileObj.type === "application/pdf" ||
     fileObj.name?.toLowerCase().endsWith(".pdf")
 
-  let pdfDoc, pages
-
+  // Si es imagen, la convertimos a PDF 1 página
+  let pdfDoc
   if (isPdf) {
-    // Cargamos el PDF original tal cual (sin rasterizar ni recomprimir)
-    pdfDoc = await PDFDocument.load(arrayBuf, { updateMetadata: false })
-    pages = pdfDoc.getPages()
+    pdfDoc = await PDFDocument.load(arrayBuffer)
   } else {
-    // Si es imagen, la incrustamos en una página del tamaño de la imagen
     pdfDoc = await PDFDocument.create()
-    const ext = (fileObj.name || "").toLowerCase()
-    const isPng = ext.endsWith(".png") || fileObj.type === "image/png"
-    const img = isPng
-      ? await pdfDoc.embedPng(arrayBuf)
-      : await pdfDoc.embedJpg(arrayBuf)
-    const page = pdfDoc.addPage([img.width, img.height])
-    page.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height })
-    pages = pdfDoc.getPages()
+    const imgBytes = new Uint8Array(arrayBuffer)
+    const ext = (fileObj.type || "").toLowerCase()
+    let img
+    if (ext.includes("png")) img = await pdfDoc.embedPng(imgBytes)
+    else img = await pdfDoc.embedJpg(imgBytes)
+
+    const { width, height } = img.scale(1)
+    const page = pdfDoc.addPage([width, height])
+    page.drawImage(img, { x: 0, y: 0, width, height })
   }
 
-  const first = pages[0]
-  const { width, height } = first.getSize()
+  const pages = pdfDoc.getPages()
+  if (!pages.length) throw new Error("PDF sin páginas")
+  const page = pages[0]
+  const { width, height } = page.getSize()
 
-  // Cargamos QR y logo
-  const qrBytes = await (await fetch(qrPngDataUrl)).arrayBuffer()
+  // Embed QR PNG
+  const qrBytes = await fetch(qrPngDataUrl).then(r => r.arrayBuffer())
   const qrImg = await pdfDoc.embedPng(qrBytes)
 
-  const logoBytes = await fetch(logoSrc).then(res => res.arrayBuffer())
+  // ✅ Embed Logo PNG (arriba del QR)
+  const logoBytes = await fetch(logoSrc).then(r => r.arrayBuffer())
   const logoImg = await pdfDoc.embedPng(logoBytes)
 
-  let qrWidth, qrHeight, x, y
+  // Escalado del QR respecto al ancho de la página
+  let qrSize, x, y
 
   if (layout) {
-    // 🔹 Usar layout arrastrado (xPct, yPct, sizePct)
-    const sizePct = layout.sizePct ?? 0.18
-    qrWidth = width * sizePct
-    qrHeight = qrWidth
+    const sizePct = layout.sizePct ?? DEFAULT_QR_SIZE_PCT
+    qrSize = width * sizePct
 
-    // xPct e yPct son el CENTRO del QR en la vista previa (0–1)
-    // x: misma proporción
-    const centerX = width * (layout.xPct ?? 0.85)
-
-    // y en HTML va desde arriba; en PDF (0,0) es abajo ⇒ invertir
-    const centerYFromTop = height * (layout.yPct ?? 0.15)
+    const centerX = width * (layout.xPct ?? 0.12)
+    const centerYFromTop = height * (layout.yPct ?? 0.88)
     const centerY = height - centerYFromTop
 
-    x = centerX - qrWidth / 2
-    y = centerY - qrHeight / 2
+    x = centerX - qrSize / 2
+    y = centerY - qrSize / 2
   } else {
-    // 🔹 Modo fijo (por si algún día no pasas layout)
-    const baseSizePct = 0.14
-    qrWidth = width * baseSizePct
-    qrHeight = qrWidth
+    const baseSizePct = 0.10
+    qrSize = width * baseSizePct
 
-    const marginX = width * 0.035
-    const marginY = height * 0.08
-
+    const margin = width * 0.03
     switch (fallbackPosition) {
-      case 'top-right':
-        x = width - marginX - qrWidth
-        y = height - marginY - qrHeight
+      case "top-left":
+        x = margin
+        y = height - margin - qrSize
         break
-      case 'bottom-right':
-        x = width - marginX - qrWidth
-        y = marginY
+      case "top-right":
+        x = width - margin - qrSize
+        y = height - margin - qrSize
         break
-      case 'top-left':
-        x = marginX
-        y = height - marginY - qrHeight
+      case "bottom-left":
+        x = margin
+        y = margin
         break
-      case 'bottom-left':
-        x = marginX
-        y = marginY
-        break
+      case "bottom-right":
       default:
-        x = width - marginX - qrWidth
-        y = height - marginY - qrHeight
+        x = width - margin - qrSize
+        y = margin
         break
     }
   }
 
-  // 🔹 Pequeño margen de seguridad para no salirnos de la página
-  const marginAbsX = width * 0.01
-  const marginAbsY = height * 0.01
-  x = Math.max(marginAbsX, Math.min(width - marginAbsX - qrWidth, x))
-  y = Math.max(marginAbsY, Math.min(height - marginAbsY - qrHeight, y))
+  // ✅ Tamaño del logo (mismo ancho que el QR)
+  const LOGO_H_RATIO = 0.30      // alto del logo relativo al QR (ajústalo si quieres)
+  const GAP = 4                  // separación logo-QR
+  const logoW = qrSize
+  const logoH = qrSize * LOGO_H_RATIO
+  const groupH = qrSize + GAP + logoH  // alto total (QR + gap + logo)
 
-  // Fondo blanco detrás
-  const pad = qrWidth * 0.25
-  const logoHeight = qrWidth * 0.28
-  const boxW = qrWidth + pad * 2
-  const boxH = qrHeight + pad * 2 + logoHeight + 8
+  // ✅ Clamp considerando el grupo completo (para que el logo no se corte arriba)
+  const clampMargin = width * 0.01
+  x = Math.min(width - clampMargin - qrSize, Math.max(clampMargin, x))
+  y = Math.min(height - clampMargin - groupH, Math.max(clampMargin, y))
 
-  first.drawRectangle({
-    x: x - pad,
-    y: y - pad,
-    width: boxW,
-    height: boxH,
-    color: rgb(1, 1, 1)
+  // ✅ Fondo blanco detrás de todo (QR + logo)
+  page.drawRectangle({
+    x: x - 2,
+    y: y - 2,
+    width: qrSize + 4,
+    height: groupH + 4,
+    color: rgb(1, 1, 1),
+    opacity: 0.90,
   })
 
-  // QR
-  first.drawImage(qrImg, {
+  // QR (abajo)
+  page.drawImage(qrImg, {
     x,
     y,
-    width: qrWidth,
-    height: qrHeight
+    width: qrSize,
+    height: qrSize,
   })
 
-  // Logo justo debajo del QR (si queda muy justo, puedes bajar un poco y)
-  first.drawImage(logoImg, {
+  // ✅ Logo (arriba del QR)
+  page.drawImage(logoImg, {
     x,
-    y: y + qrHeight + 4,
-    width: qrWidth,
-    height: logoHeight
+    y: y + qrSize + GAP,
+    width: logoW,
+    height: logoH,
   })
 
+  // Guardamos sin recomprimir el original
   return await pdfDoc.save({ useObjectStreams: false })
 }
 
 
-/* ===== Acciones lista ===== */
-function isVigente(row){
-  const vence = row.fecha_vencimiento?.toDate?.() || new Date(row.fecha_vencimiento)
-  if(!vence) return false
-  return new Date() <= vence && !!row.aprobado
+/* ===== Ver / Descargar / Editar / Eliminar ===== */
+const showViewer = ref(false)
+const viewerUrl = ref("")
+let viewerRevoke = null
+
+async function ver(cert){
+  try{
+    const dataUrl = await obtenerCertificadoDataUrl(cert.id)
+    viewerUrl.value = dataUrl
+    showViewer.value = true
+    viewerRevoke = null
+  }catch(e){
+    console.error(e)
+    showToast("danger","No se pudo abrir el certificado")
+  }
+}
+function closeViewer(){
+  showViewer.value = false
+  if (viewerRevoke) {
+    URL.revokeObjectURL(viewerRevoke)
+    viewerRevoke = null
+  }
+  viewerUrl.value = ""
 }
 
-async function descargar(row){
+async function descargar(cert){
   try{
-    const dataUrl = await obtenerCertificadoDataUrl(row.id)
-    if (!dataUrl) { showToast('warning',"No se encontró archivo"); return }
-    const b64 = dataUrl.replace(/^data:.*?;base64,/, '')
-    const blob = base64ToBlob(b64, row.mimeType || "application/pdf")
+    const dataUrl = await obtenerCertificadoDataUrl(cert.id)
+    // convertir dataUrl a blob para descargar
+    const res = await fetch(dataUrl)
+    const blob = await res.blob()
     const url = URL.createObjectURL(blob)
-    downloadBlob(url, row.file_name || `certificado_${row.id}.pdf`)
+    downloadBlob(url, cert.file_name || `certificado_${cert.id}.pdf`)
+    setTimeout(()=>URL.revokeObjectURL(url), 1500)
   }catch(e){
     console.error(e)
-    showToast('danger','No se pudo descargar')
+    showToast("danger","No se pudo descargar")
   }
 }
 
-function pedirEliminar(row){
-  pendingDeleteRow.value = row
-  showConfirm.value = true
-}
-async function confirmarEliminar(){
-  const row = pendingDeleteRow.value
-  if (!row) { showConfirm.value=false; return }
-  showConfirm.value = false
-  deletingId.value = row.id
-  try{
-    await eliminarCertificadoSvc(row.id)
-    lista.value = lista.value.filter(r => r.id !== row.id)
-    showToast('success','Certificado eliminado correctamente')
-  }catch(e){
-    console.error(e)
-    showToast('danger','No se pudo eliminar')
-  }finally{
-    deletingId.value=null
-  }
-}
+/* ===== Editar ===== */
+const showEdit = ref(false)
+const editForm = reactive({
+  id: "",
+  categoria: "",
+  equipo: "",
+  codigo: "",
+  aprobado: true,
+})
+const editNewFile = ref(null)
 
-function editar(row){
-  editRow.value = row
-  editForm.categoria = row.categoria || ''
-  editForm.equipo = row.equipo || ''
-  editForm.codigo = row.codigo || ''
-  editForm.aprobado = !!row.aprobado
-  const v = row.fecha_vencimiento?.toDate?.() || row.fecha_vencimiento || ''
-  editForm.fecha_vencimiento = (v && typeof v === 'string') ? v : (v ? new Date(v).toISOString().slice(0,19) : '')
-  editNewFile = null
+function abrirEditar(cert){
+  editForm.id = cert.id
+  editForm.categoria = cert.categoria || ""
+  editForm.equipo = cert.equipo || ""
+  editForm.codigo = cert.codigo || ""
+  editForm.aprobado = !!cert.aprobado
+  editNewFile.value = null
   showEdit.value = true
 }
 
 async function guardarEdicion(){
-  if (!editRow.value) return
+  if (!editForm.id) return
+  if (!editForm.categoria) { showToast("warning","Selecciona categoría"); return }
+
   loading.value = true
   try{
-    await actualizarMetadatos(editRow.value.id, {
+    // update metadatos
+    await actualizarMetadatos(editForm.id, {
       categoria: editForm.categoria || null,
       equipo: editForm.equipo || null,
       codigo: editForm.codigo || null,
       aprobado: !!editForm.aprobado,
-      fecha_vencimiento: editForm.fecha_vencimiento || editRow.value.fecha_vencimiento || null,
     })
 
-    if (editNewFile){
-      let verifyUrl = editRow.value.verificar_url
-      if (!verifyUrl){
-        verifyUrl = `${location.origin}/verificar?id=${editRow.value.id}`
-        await actualizarMetadatos(editRow.value.id, { verificar_url: verifyUrl })
-      }
+    // si hay archivo nuevo, reinyectar QR
+    if (editNewFile.value) {
+      const verifyUrl = `${location.origin}/verificar?id=${editForm.id}`
       const qrUrl = await QRCode.toDataURL(verifyUrl, { margin:1, width:300 })
-      const newBytes = await buildPdfWithQr(editNewFile, qrUrl, qrLayout)
+      const newBytes = await buildPdfWithQr(editNewFile.value, qrUrl, qrLayout)
 
       const b64 = bytesToBase64(new Uint8Array(newBytes))
       const dataUrl = `data:application/pdf;base64,${b64}`
 
       showProgress.value = true
-      progress.value = { stage:'uploading', pct:0, detail:'Reemplazando archivo…' }
-      await reemplazarArchivo(
-        editRow.value.id,
-        { base64: dataUrl, mimeType: 'application/pdf', sizeBytes: newBytes.byteLength, preferirChunks: true },
-        (e)=>{ progress.value = e }
+      progress.value = { stage: 'uploading', pct: 0, detail: 'Subiendo archivo actualizado…' }
+
+      // Re-crear certificado en mismo id (tu servicio debe soportarlo) o usa actualizar archivo
+      await crearCertificado(
+        { base64: dataUrl, mimeType: "application/pdf", sizeBytes: newBytes.byteLength, preferirChunks: true, idForzar: editForm.id },
+        {
+          categoria: editForm.categoria || null,
+          equipo: editForm.equipo || null,
+          codigo: editForm.codigo || null,
+          aprobado: !!editForm.aprobado,
+          verificar_url: verifyUrl,
+          creado_iso: new Date().toISOString(),
+          fecha_vencimiento: addMonths(new Date(), 3).toISOString(),
+          file_name: editNewFile.value?.name || `certificado_${editForm.id}.pdf`,
+        },
+        (e)=> { progress.value = e }
       )
       showProgress.value = false
     }
 
     await cargarCertificados()
+    showToast("success","Cambios guardados")
     showEdit.value = false
-    showToast('success','Cambios guardados (sin pérdida de nitidez)')
   }catch(e){
     console.error(e)
-    showToast('danger','No se pudo guardar la edición')
+    showToast("danger","Error guardando cambios")
   }finally{
     loading.value = false
+    showProgress.value = false
   }
 }
 
+/* ===== Eliminar ===== */
+const showConfirm = ref(false)
+const confirmId = ref("")
+function abrirEliminar(cert){
+  confirmId.value = cert.id
+  showConfirm.value = true
+}
+async function confirmarEliminar(){
+  if (!confirmId.value) return
+  try{
+    await eliminarCertificadoSvc(confirmId.value)
+    showToast("success","Eliminado")
+    showConfirm.value = false
+    confirmId.value = ""
+    await cargarCertificados()
+  }catch(e){
+    console.error(e)
+    showToast("danger","No se pudo eliminar")
+  }
+}
+
+/* ===== Btn disable ===== */
+const btnDisabled = computed(() => {
+  if (loading.value) return true
+  if (batchMode.value) {
+    return !batchRows.value.length
+  } else {
+    return !file.value || !form.categoria
+  }
+})
+
+/* ===== Mounted ===== */
 onMounted(async () => {
   await cargarCategorias()
   await cargarCertificados()
+
+  // default QR preview
+  resetQrLayout()
 })
 </script>
 
 <style scoped>
 .table td, .table th { vertical-align: middle; }
-.modal { backdrop-filter: blur(1px); }
-
-/* Mejora visual toasts */
-.toast .toast-body { font-weight: 500; }
 </style>
