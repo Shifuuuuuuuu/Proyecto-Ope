@@ -1,39 +1,101 @@
 <template>
   <div class="container py-4">
-    <!-- Header + Probar -->
-    <div class="d-flex align-items-center justify-content-between mb-3">
-      <h2 class="h5 mb-0">Generar certificado con QR (alta nitidez)</h2>
 
-      <div class="d-flex align-items-center gap-2">
-        <router-link v-if="lastId" class="btn btn-outline-secondary btn-sm" :to="`/verificar?id=${lastId}`">
-          Probar último certificado
-        </router-link>
-        <button v-else class="btn btn-outline-secondary btn-sm" disabled title="Primero genera un certificado">
-          Probar verificación pública
-        </button>
-        <button v-if="lastVerifyUrl" type="button" class="btn btn-outline-secondary btn-sm" @click="copiar(lastVerifyUrl)">
-          Copiar link
-        </button>
+    <!-- ===== HERO HEADER (RECT + COMPACTO) ===== -->
+    <div class="hero card border-0 shadow-sm overflow-hidden mb-3 box-rect">
+      <div class="hero-bg"></div>
+
+      <div class="card-body position-relative py-3 px-3 px-sm-4">
+        <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+
+          <!-- Left: título + métricas -->
+          <div class="minw-0">
+            <h2 class="h6 fw-black mb-0">Generar certificado con QR </h2>
+            <div class="text-muted small">
+              Incrusta QR en la primera página (sin recomprimir) + verificación pública.
+            </div>
+
+            <div class="metrics mt-2">
+              <span class="badge text-bg-secondary badge-rect">
+                Guardados: {{ filtered.length }}
+              </span>
+              <span class="badge text-bg-dark badge-rect">
+                En página: {{ paged.length }}
+              </span>
+              <span v-if="batchMode" class="badge text-bg-warning text-dark badge-rect">
+                Modo lote
+              </span>
+              <span v-else class="badge text-bg-info badge-rect">
+                Modo simple
+              </span>
+            </div>
+          </div>
+
+          <!-- Right: acciones -->
+          <div class="d-flex align-items-center gap-2 flex-wrap justify-content-lg-end">
+            <router-link
+              v-if="lastId"
+              class="btn btn-outline-secondary btn-sm btn-rect"
+              :to="`/verificar?id=${lastId}`"
+            >
+              <i class="bi bi-shield-check me-1"></i> Probar último
+            </router-link>
+
+
+            <button
+              v-if="lastVerifyUrl"
+              type="button"
+              class="btn btn-outline-secondary btn-sm btn-rect"
+              @click="copiar(lastVerifyUrl)"
+            >
+              <i class="bi bi-clipboard me-1"></i> Copiar link
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Formulario -->
-    <div class="card shadow-sm">
-      <div class="card-body">
+    <!-- ===== FORM PRINCIPAL ===== -->
+    <div class="card border-0 shadow-sm box-rect">
+      <div class="card-header header-rect bg-body-tertiary d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-2">
+          <span class="header-icon soft"><i class="bi bi-qr-code-scan"></i></span>
+          <strong>Generación</strong>
+        </div>
+
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <span class="text-muted small" v-if="previewUrl && !batchMode">
+            Tamaño final aprox.: <strong>{{ humanSize(bytesFinal) }}</strong>
+          </span>
+        </div>
+      </div>
+
+      <div class="card-body p-3 p-sm-4">
         <form @submit.prevent="batchMode ? procesarBatch() : procesar()">
           <div class="row g-3">
+
+            <!-- toggle lote -->
             <div class="col-12 d-flex align-items-center justify-content-between flex-wrap gap-2">
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="batchMode" v-model="batchMode" />
-                <label class="form-check-label" for="batchMode">Generar varios a la vez (múltiples archivos)</label>
+                <label class="form-check-label" for="batchMode">
+                  Generar varios a la vez (múltiples archivos)
+                </label>
               </div>
             </div>
 
+            <!-- input file -->
             <div class="col-12">
               <label class="form-label">
                 {{ batchMode ? 'Archivos de certificados (PDF o imagen, múltiples)' : 'Archivo del certificado (PDF o imagen)' }}
               </label>
-              <input type="file" :multiple="batchMode" accept="application/pdf,image/*" class="form-control" @change="onFile" />
+              <input
+                type="file"
+                :multiple="batchMode"
+                accept="application/pdf,image/*"
+                class="form-control"
+                @change="onFile"
+              />
               <div class="form-text">
                 Se incrustará un QR en la primera página.
                 En modo simple puedes elegir la esquina (o arrastrarlo en la vista previa).
@@ -72,7 +134,7 @@
               </div>
             </div>
 
-            <!-- Campos base para modo simple -->
+            <!-- Campos modo simple -->
             <template v-if="!batchMode">
               <div class="col-md-6">
                 <label class="form-label">Categoría</label>
@@ -81,14 +143,17 @@
                   <option v-for="c in categorias" :key="c" :value="c">{{ c }}</option>
                 </select>
               </div>
+
               <div class="col-md-6">
                 <label class="form-label">Equipo (opcional)</label>
                 <input v-model="form.equipo" @input="toUpper('equipo')" class="form-control" placeholder="JPWL-36"/>
               </div>
+
               <div class="col-md-6">
                 <label class="form-label">Código interno (opcional)</label>
                 <input v-model="form.codigo" @input="toUpper('codigo')" class="form-control" placeholder="ABC-123"/>
               </div>
+
               <div class="col-md-6 d-flex align-items-end">
                 <div class="form-check">
                   <input class="form-check-input" type="checkbox" id="aprobado" v-model="form.aprobado"/>
@@ -100,8 +165,8 @@
             <!-- Tabla modo lote -->
             <div v-else class="col-12">
               <div class="table-responsive">
-                <table class="table table-sm align-middle">
-                  <thead>
+                <table class="table table-sm align-middle table-pro mb-0">
+                  <thead class="table-light sticky-head">
                     <tr>
                       <th>Archivo</th>
                       <th>Categoría</th>
@@ -123,10 +188,20 @@
                         </select>
                       </td>
                       <td style="min-width:160px">
-                        <input v-model="r.equipo" @input="r.equipo = (r.equipo || '').toUpperCase()" class="form-control form-control-sm" placeholder="JPWL-36"/>
+                        <input
+                          v-model="r.equipo"
+                          @input="r.equipo = (r.equipo || '').toUpperCase()"
+                          class="form-control form-control-sm"
+                          placeholder="JPWL-36"
+                        />
                       </td>
                       <td style="min-width:160px">
-                        <input v-model="r.codigo" @input="r.codigo = (r.codigo || '').toUpperCase()" class="form-control form-control-sm" placeholder="ABC-123"/>
+                        <input
+                          v-model="r.codigo"
+                          @input="r.codigo = (r.codigo || '').toUpperCase()"
+                          class="form-control form-control-sm"
+                          placeholder="ABC-123"
+                        />
                       </td>
                       <td style="min-width:110px">
                         <div class="form-check">
@@ -135,14 +210,17 @@
                         </div>
                       </td>
                     </tr>
+
                     <tr v-if="!batchRows.length">
-                      <td colspan="5" class="text-muted small">Selecciona archivos para preparar el lote.</td>
+                      <td colspan="5" class="text-muted small py-3">
+                        Selecciona archivos para preparar el lote.
+                      </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
 
-              <div v-if="batchRows.length" class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+              <div v-if="batchRows.length" class="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-2">
                 <div class="small text-muted">
                   Total: <strong>{{ batchRows.length }}</strong> archivos
                 </div>
@@ -154,7 +232,7 @@
 
             <!-- Progreso -->
             <div v-if="showProgress" class="col-12">
-              <div class="border rounded p-3 bg-light">
+              <div class="progress-wrap">
                 <div class="d-flex align-items-center justify-content-between">
                   <div class="small text-muted">{{ progress.detail }}</div>
                   <div class="small text-muted">{{ progress.stage }}</div>
@@ -167,67 +245,63 @@
 
             <!-- Acciones -->
             <div class="col-12 d-flex gap-2 flex-wrap">
-              <button class="btn btn-primary" type="submit" :disabled="btnDisabled">
+              <button class="btn btn-primary btn-rect" type="submit" :disabled="btnDisabled">
                 <span v-if="loading" class="spinner-border spinner-border-sm me-2"></span>
+                <i class="bi bi-magic me-1"></i>
                 {{ batchMode ? 'Generar lote' : 'Generar certificado' }}
               </button>
-              <button class="btn btn-outline-secondary" type="button" @click="limpiar" :disabled="loading">
-                Limpiar
+
+              <button class="btn btn-outline-secondary btn-rect" type="button" @click="limpiar" :disabled="loading">
+                <i class="bi bi-eraser me-1"></i> Limpiar
               </button>
             </div>
           </div>
         </form>
 
-        <!-- Vista previa (solo modo simple) -->
+        <!-- ===== Vista previa (solo modo simple) ===== -->
         <div v-if="!batchMode && previewUrl" class="mt-4">
-          <h6 class="mb-2">Vista previa (arrastra el QR si quieres posición personalizada)</h6>
+          <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+            <h6 class="mb-0">Vista previa</h6>
+            <span class="small text-muted">Arrastra el QR si quieres posición personalizada</span>
+          </div>
 
           <div
             ref="previewWrapper"
-            class="border rounded overflow-hidden position-relative"
-            style="height: 520px; background: #f8f9fa; overflow: hidden;"
+            class="preview-wrap position-relative"
           >
-            <embed
-              :src="previewUrl"
-              type="application/pdf"
-              class="w-100 h-100"
-            />
+            <embed :src="previewUrl" type="application/pdf" class="w-100 h-100" />
 
             <!-- QR draggable encima del PDF -->
-            <div
-              v-if="qrDataUrl"
-              :style="qrOverlayStyle"
-              @mousedown.prevent="startDragQr"
-            >
-              <img
-                :src="qrDataUrl"
-                alt="QR"
-                class="w-100 h-100"
-                draggable="false"
-              />
+            <div v-if="qrDataUrl" class="qr-overlay" :style="qrOverlayStyle" @mousedown.prevent="startDragQr">
+              <img :src="qrDataUrl" alt="QR" class="w-100 h-100" draggable="false" />
             </div>
           </div>
 
-          <div class="small text-muted mt-2">
-            Tamaño final aprox.: <strong>{{ humanSize(bytesFinal) }}</strong>
-          </div>
           <div class="small text-muted mt-2">
             Puedes arrastrar el QR en la vista previa para elegir su posición.
           </div>
         </div>
 
         <div v-if="!batchMode && qrDataUrl && verificationUrl" class="mt-4">
-          <h6 class="text-muted">QR generado (último certificado):</h6>
-          <img :src="qrDataUrl" alt="QR" style="width: 130px; height: 130px" />
-          <div class="small text-break mt-2">{{ verificationUrl }}</div>
+          <h6 class="text-muted mb-2">QR generado (último certificado):</h6>
+          <div class="d-flex align-items-center gap-3 flex-wrap">
+            <img :src="qrDataUrl" alt="QR" class="qr-thumb" />
+            <div class="small text-break">{{ verificationUrl }}</div>
+          </div>
         </div>
 
-        <!-- Resultado en lote -->
+        <!-- ===== Resultado en lote ===== -->
         <div v-if="batchMode && batchResults.length" class="mt-4">
-          <h6 class="mb-2">Resultados del lote</h6>
+          <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+            <h6 class="mb-0">Resultados del lote</h6>
+            <button class="btn btn-outline-secondary btn-sm btn-rect" @click="copiarTodos()">
+              <i class="bi bi-clipboard-check me-1"></i> Copiar todos los links
+            </button>
+          </div>
+
           <div class="table-responsive">
-            <table class="table table-sm align-middle">
-              <thead>
+            <table class="table table-sm align-middle table-pro mb-0">
+              <thead class="table-light sticky-head">
                 <tr>
                   <th>#</th>
                   <th>Archivo</th>
@@ -240,38 +314,33 @@
               <tbody>
                 <tr v-for="(r, idx) in batchResults" :key="r.id">
                   <td>{{ idx + 1 }}</td>
-                  <td class="text-break">
-                    {{ r.name }}
-                  </td>
+                  <td class="text-break">{{ r.name }}</td>
                   <td>{{ humanSize(r.sizeBytes) }}</td>
                   <td>
-                    <span class="badge bg-success">Sin recomprimir</span>
+                    <span class="badge bg-success badge-rect">Sin recomprimir</span>
                   </td>
                   <td>
-                    <router-link class="btn btn-success btn-sm" :to="`/verificar?id=${r.id}`">
-                      Abrir
+                    <router-link class="btn btn-success btn-sm btn-rect" :to="`/verificar?id=${r.id}`">
+                      <i class="bi bi-box-arrow-up-right me-1"></i> Abrir
                     </router-link>
                   </td>
                   <td>
-                    <button class="btn btn-outline-primary btn-sm" @click="downloadBlob(r.objectUrl, r.downloadName)">
-                      Descargar
+                    <button class="btn btn-outline-primary btn-sm btn-rect" @click="downloadBlob(r.objectUrl, r.downloadName)">
+                      <i class="bi bi-download me-1"></i> Descargar
                     </button>
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
-
-          <div class="d-flex gap-2">
-            <button class="btn btn-outline-secondary btn-sm" @click="copiarTodos()">Copiar todos los links</button>
-          </div>
         </div>
+
       </div>
     </div>
 
-    <!-- Listado de certificados existentes -->
-    <div class="card shadow-sm mt-4">
-      <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <!-- ===== Listado de certificados existentes ===== -->
+    <div class="card border-0 shadow-sm mt-4 box-rect">
+      <div class="card-header header-rect bg-body-tertiary d-flex align-items-center justify-content-between flex-wrap gap-2">
         <div class="d-flex align-items-center gap-2">
           <img :src="logoSrc" alt="logo" style="height: 28px" />
           <strong>Certificados guardados</strong>
@@ -291,7 +360,7 @@
         </div>
       </div>
 
-      <div class="card-body">
+      <div class="card-body p-3 p-sm-4">
         <div v-if="loadingList" class="text-muted small">Cargando…</div>
 
         <div v-else-if="paged.length === 0" class="text-muted small">
@@ -299,8 +368,8 @@
         </div>
 
         <div v-else class="table-responsive">
-          <table class="table table-sm align-middle">
-            <thead>
+          <table class="table table-sm align-middle table-pro mb-0">
+            <thead class="table-light sticky-head">
               <tr>
                 <th>Archivo</th>
                 <th>Categoría</th>
@@ -322,20 +391,20 @@
                 <td>{{ fmtDate(c.fecha_vencimiento) }}</td>
                 <td>
                   <div class="d-flex gap-2 flex-wrap">
-                    <button class="btn btn-outline-secondary btn-sm" @click="ver(c)">
-                      Ver
+                    <button class="btn btn-outline-secondary btn-sm btn-rect" @click="ver(c)">
+                      <i class="bi bi-eye me-1"></i> Ver
                     </button>
-                    <router-link class="btn btn-success btn-sm" :to="`/verificar?id=${c.id}`">
-                      Verificar
+                    <router-link class="btn btn-success btn-sm btn-rect" :to="`/verificar?id=${c.id}`">
+                      <i class="bi bi-shield-check me-1"></i> Verificar
                     </router-link>
-                    <button class="btn btn-outline-primary btn-sm" @click="descargar(c)">
-                      Descargar
+                    <button class="btn btn-outline-primary btn-sm btn-rect" @click="descargar(c)">
+                      <i class="bi bi-download me-1"></i> Descargar
                     </button>
-                    <button class="btn btn-outline-warning btn-sm" @click="abrirEditar(c)">
-                      Editar
+                    <button class="btn btn-outline-warning btn-sm btn-rect" @click="abrirEditar(c)">
+                      <i class="bi bi-pencil-square me-1"></i> Editar
                     </button>
-                    <button class="btn btn-outline-danger btn-sm" @click="abrirEliminar(c)">
-                      Eliminar
+                    <button class="btn btn-outline-danger btn-sm btn-rect" @click="abrirEliminar(c)">
+                      <i class="bi bi-trash me-1"></i> Eliminar
                     </button>
                   </div>
                 </td>
@@ -350,19 +419,25 @@
             Mostrando {{ paged.length }} de {{ filtered.length }}
           </div>
 
-          <div class="btn-group">
-            <button class="btn btn-outline-secondary btn-sm" @click="prevPage" :disabled="page<=1">Anterior</button>
-            <button class="btn btn-outline-secondary btn-sm" @click="nextPage" :disabled="page>=maxPage">Siguiente</button>
+          <div class="btn-group btn-group-rect">
+            <button class="btn btn-outline-secondary btn-sm btn-rect" @click="prevPage" :disabled="page<=1">Anterior</button>
+            <button class="btn btn-outline-secondary btn-sm btn-rect" @click="nextPage" :disabled="page>=maxPage">Siguiente</button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- MODAL VER PDF -->
-    <div class="modal fade show d-block" tabindex="-1" role="dialog" v-if="showViewer" style="background: rgba(0,0,0,0.35);">
+    <!-- ===== MODAL VER PDF ===== -->
+    <div
+      class="modal fade show d-block"
+      tabindex="-1"
+      role="dialog"
+      v-if="showViewer"
+      style="background: rgba(0,0,0,0.35);"
+    >
       <div class="modal-dialog modal-xl modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg">
-          <div class="modal-header">
+        <div class="modal-content border-0 shadow-lg modal-pro box-rect">
+          <div class="modal-header header-rect">
             <h5 class="modal-title">Vista del certificado</h5>
             <button type="button" class="btn-close" @click="closeViewer"></button>
           </div>
@@ -372,17 +447,23 @@
             </div>
           </div>
           <div class="modal-footer">
-            <button class="btn btn-outline-secondary" @click="closeViewer">Cerrar</button>
+            <button class="btn btn-outline-secondary btn-rect" @click="closeViewer">Cerrar</button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- MODAL EDITAR -->
-    <div class="modal fade show d-block" tabindex="-1" role="dialog" v-if="showEdit" style="background: rgba(0,0,0,0.35);">
+    <!-- ===== MODAL EDITAR ===== -->
+    <div
+      class="modal fade show d-block"
+      tabindex="-1"
+      role="dialog"
+      v-if="showEdit"
+      style="background: rgba(0,0,0,0.35);"
+    >
       <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg">
-          <div class="modal-header">
+        <div class="modal-content border-0 shadow-lg modal-pro box-rect">
+          <div class="modal-header header-rect">
             <h5 class="modal-title">Editar certificado</h5>
             <button type="button" class="btn-close" @click="showEdit=false"></button>
           </div>
@@ -395,14 +476,17 @@
                   <option v-for="c in categorias" :key="c" :value="c">{{ c }}</option>
                 </select>
               </div>
+
               <div class="col-md-6">
                 <label class="form-label">Equipo</label>
                 <input v-model="editForm.equipo" @input="editForm.equipo=(editForm.equipo||'').toUpperCase()" class="form-control"/>
               </div>
+
               <div class="col-md-6">
                 <label class="form-label">Código</label>
                 <input v-model="editForm.codigo" @input="editForm.codigo=(editForm.codigo||'').toUpperCase()" class="form-control"/>
               </div>
+
               <div class="col-md-6 d-flex align-items-end">
                 <div class="form-check">
                   <input class="form-check-input" type="checkbox" v-model="editForm.aprobado"/>
@@ -423,41 +507,47 @@
             </div>
           </div>
           <div class="modal-footer">
-            <button class="btn btn-outline-secondary" @click="showEdit=false">Cancelar</button>
-            <button class="btn btn-primary" @click="guardarEdicion" :disabled="loading">Guardar cambios</button>
+            <button class="btn btn-outline-secondary btn-rect" @click="showEdit=false">Cancelar</button>
+            <button class="btn btn-primary btn-rect" @click="guardarEdicion" :disabled="loading">
+              <span v-if="loading" class="spinner-border spinner-border-sm me-2"></span>
+              Guardar cambios
+            </button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- MODAL CONFIRMACIÓN ELIMINAR -->
-    <div class="modal fade show d-block" tabindex="-1" role="dialog" v-if="showConfirm" style="background: rgba(0,0,0,35);">
+    <!-- ===== MODAL CONFIRMACIÓN ELIMINAR ===== -->
+    <div
+      class="modal fade show d-block"
+      tabindex="-1"
+      role="dialog"
+      v-if="showConfirm"
+      style="background: rgba(0,0,0,0.35);"
+    >
       <div class="modal-dialog modal-sm modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg">
+        <div class="modal-content border-0 shadow-lg modal-pro box-rect">
           <div class="modal-body text-center p-4">
-            <div
-              class="rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center"
-              style="width:64px;height:64px;background:#fff0f0;border:1px solid #ffd6d6;"
-            >
+            <div class="danger-badge mx-auto mb-3 d-flex align-items-center justify-content-center">
               <i class="bi bi-trash3-fill fs-3 text-danger"></i>
             </div>
             <h6 class="mb-1">¿Eliminar certificado?</h6>
             <p class="text-muted small mb-3">Esta acción no se puede deshacer.</p>
             <div class="d-flex gap-2 justify-content-center">
-              <button class="btn btn-outline-secondary btn-sm" @click="showConfirm=false">Cancelar</button>
-              <button class="btn btn-danger btn-sm" @click="confirmarEliminar">Eliminar</button>
+              <button class="btn btn-outline-secondary btn-sm btn-rect" @click="showConfirm=false">Cancelar</button>
+              <button class="btn btn-danger btn-sm btn-rect" @click="confirmarEliminar">Eliminar</button>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- TOASTS -->
+    <!-- ===== TOASTS ===== -->
     <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080">
       <div
         v-for="t in toasts"
         :key="t.id"
-        class="toast show align-items-center text-white border-0 mb-2"
+        class="toast show align-items-center text-white border-0 mb-2 toast-pro"
         :class="toastClass(t.variant)"
         role="alert"
       >
@@ -576,9 +666,9 @@ const qrOverlayStyle = computed(() => {
     height: `${qrLayout.sizePct * 100}%`,
     transform: "translate(-50%, -50%)",
     cursor: "move",
-    border: "2px dashed rgba(220,53,69,0.7)",
+    border: "2px dashed rgba(220,53,69,0.75)",
     borderRadius: "10px",
-    background: "rgba(255,255,255,0.35)",
+    background: "rgba(255,255,255,0.40)",
     padding: "4px",
     userSelect: "none",
     boxSizing: "border-box",
@@ -786,7 +876,6 @@ async function onFile(e){
     verificationUrl.value = ""
 
     // reset layout
-    // volvemos al preset seleccionado (por defecto abajo-izquierda)
     if (qrPreset.value !== 'custom') applyQrPreset(qrPreset.value)
     qrLayout.sizePct = qrLayout.sizePct ?? DEFAULT_QR_SIZE_PCT
 
@@ -958,8 +1047,6 @@ async function copiarTodos(){
 }
 
 // layout = { xPct, yPct, sizePct } en coordenadas de la vista previa
-// layout = { xPct, yPct, sizePct } en coordenadas de la vista previa
-// fallbackPosition se usa SOLO si no pasas layout
 async function buildPdfWithQr(fileObj, qrPngDataUrl, layout = null, fallbackPosition = DEFAULT_QR_PRESET) {
   const arrayBuffer = await fileObj.arrayBuffer()
   const isPdf =
@@ -1036,11 +1123,11 @@ async function buildPdfWithQr(fileObj, qrPngDataUrl, layout = null, fallbackPosi
   }
 
   // ✅ Tamaño del logo (mismo ancho que el QR)
-  const LOGO_H_RATIO = 0.30      // alto del logo relativo al QR (ajústalo si quieres)
-  const GAP = 4                  // separación logo-QR
+  const LOGO_H_RATIO = 0.30
+  const GAP = 4
   const logoW = qrSize
   const logoH = qrSize * LOGO_H_RATIO
-  const groupH = qrSize + GAP + logoH  // alto total (QR + gap + logo)
+  const groupH = qrSize + GAP + logoH
 
   // ✅ Clamp considerando el grupo completo (para que el logo no se corte arriba)
   const clampMargin = width * 0.01
@@ -1077,7 +1164,6 @@ async function buildPdfWithQr(fileObj, qrPngDataUrl, layout = null, fallbackPosi
   return await pdfDoc.save({ useObjectStreams: false })
 }
 
-
 /* ===== Ver / Descargar / Editar / Eliminar ===== */
 const showViewer = ref(false)
 const viewerUrl = ref("")
@@ -1106,7 +1192,6 @@ function closeViewer(){
 async function descargar(cert){
   try{
     const dataUrl = await obtenerCertificadoDataUrl(cert.id)
-    // convertir dataUrl a blob para descargar
     const res = await fetch(dataUrl)
     const blob = await res.blob()
     const url = URL.createObjectURL(blob)
@@ -1145,7 +1230,6 @@ async function guardarEdicion(){
 
   loading.value = true
   try{
-    // update metadatos
     await actualizarMetadatos(editForm.id, {
       categoria: editForm.categoria || null,
       equipo: editForm.equipo || null,
@@ -1153,7 +1237,6 @@ async function guardarEdicion(){
       aprobado: !!editForm.aprobado,
     })
 
-    // si hay archivo nuevo, reinyectar QR
     if (editNewFile.value) {
       const verifyUrl = `${location.origin}/verificar?id=${editForm.id}`
       const qrUrl = await QRCode.toDataURL(verifyUrl, { margin:1, width:300 })
@@ -1165,7 +1248,6 @@ async function guardarEdicion(){
       showProgress.value = true
       progress.value = { stage: 'uploading', pct: 0, detail: 'Subiendo archivo actualizado…' }
 
-      // Re-crear certificado en mismo id (tu servicio debe soportarlo) o usa actualizar archivo
       await crearCertificado(
         { base64: dataUrl, mimeType: "application/pdf", sizeBytes: newBytes.byteLength, preferirChunks: true, idForzar: editForm.id },
         {
@@ -1230,12 +1312,116 @@ const btnDisabled = computed(() => {
 onMounted(async () => {
   await cargarCategorias()
   await cargarCertificados()
-
-  // default QR preview
   resetQrLayout()
 })
 </script>
 
 <style scoped>
+/* ===== Page background ===== */
+.cert-page{
+  min-height: calc(100vh - 56px);
+  background:
+    radial-gradient(1200px 650px at 15% 10%, rgba(220, 53, 69, 0.10), transparent 60%),
+    radial-gradient(900px 550px at 85% 20%, rgba(13, 110, 253, 0.08), transparent 60%),
+    linear-gradient(180deg, #ffffff, #fbfbfc);
+}
+
+/* ===== Rect helpers (los “nuevos estilos”) ===== */
+.btn-rect{
+  border-radius: 10px;
+  font-weight: 800;
+}
+.badge-rect{
+  border-radius: 10px;
+  font-weight: 800;
+}
+.box-rect{
+  border-radius: 12px !important;
+}
+.header-rect{
+  border-top-left-radius: 12px !important;
+  border-top-right-radius: 12px !important;
+}
+
+/* ===== Hero ===== */
+.hero{ position: relative; }
+.hero-bg{
+  position:absolute; inset:0;
+  background: linear-gradient(90deg, rgba(220,53,69,.10), rgba(170,25,40,.05));
+}
+.fw-black{ font-weight: 900; }
+.metrics{ display:flex; flex-wrap:wrap; gap:.45rem; }
+
+/* ===== Header icon ===== */
+.header-icon{
+  width: 34px; height: 34px;
+  border-radius: 10px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(255,255,255,.18);
+  color:#fff;
+}
+.header-icon.soft{
+  background: rgba(220,53,69,.12);
+  color:#dc3545;
+}
+
+/* ===== Progress box ===== */
+.progress-wrap{
+  border: 1px solid rgba(0,0,0,.08);
+  background: rgba(248,249,250,.85);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+/* ===== Preview ===== */
+.preview-wrap{
+  height: 520px;
+  background: #f8f9fa;
+  border: 1px solid rgba(0,0,0,.10);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.qr-thumb{
+  width: 130px;
+  height: 130px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,.08);
+  background: #fff;
+  padding: 6px;
+}
+
+/* ===== Table ===== */
 .table td, .table th { vertical-align: middle; }
+.table-pro thead th{ font-weight: 900; }
+.table-pro tbody tr:hover{ background: rgba(220,53,69,.04); }
+.sticky-head{
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+/* ===== Btn group “rect” ===== */
+.btn-group-rect :deep(.btn){
+  border-radius: 10px !important;
+}
+
+/* ===== Modals ===== */
+.modal-pro{
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.22);
+}
+.danger-badge{
+  width:64px; height:64px;
+  border-radius: 14px;
+  background:#fff0f0;
+  border:1px solid #ffd6d6;
+}
+
+/* ===== Toast ===== */
+.toast-pro{
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0,0,0,.18);
+}
 </style>

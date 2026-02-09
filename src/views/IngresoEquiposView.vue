@@ -1,76 +1,97 @@
 <template>
-  <div class="container-fluid py-4">
+  <div class="ingreso-page container-fluid py-4">
 
-    <!-- HEADER: Volver + título + controles (responsive) -->
-    <div class="d-flex align-items-start align-items-sm-center justify-content-between gap-3 flex-wrap mb-3">
-      <div class="d-flex align-items-start gap-2">
-        <button class="btn btn-outline-dark btn-sm btn-w-xs" @click="volver">
-          <i class="bi bi-arrow-left"></i>
-          <span class="d-none d-sm-inline">Volver</span>
-        </button>
-        <div>
-          <h2 class="mb-0 fs-5 fs-sm-4">Ingreso de equipos</h2>
-          <small class="text-muted">Registro y seguimiento de equipos por taller</small>
-        </div>
-      </div>
+    <!-- ===== HERO HEADER (RECTANGULAR + COMPACTO) ===== -->
+    <div class="hero card border-0 shadow-sm overflow-hidden mb-3">
+      <div class="hero-bg"></div>
 
-      <div class="d-flex align-items-stretch align-items-sm-center gap-2 flex-column flex-sm-row w-100 w-sm-auto">
-        <div class="d-flex align-items-center gap-2 w-100 w-sm-auto">
-          <label class="form-label mb-0 d-none d-sm-inline">Taller:</label>
-          <select
-            class="form-select form-select-sm minw-220 w-100 w-sm-auto"
-            v-model="tallerActivo"
-            @change="recargar()"
-          >
-            <option v-for="t in TALLER_OPTS" :key="t" :value="t">{{ t }}</option>
-          </select>
-        </div>
+      <div class="card-body position-relative py-3 px-3 px-sm-4">
+        <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+          <!-- Left -->
+          <div class="d-flex align-items-start gap-2 minw-0">
+            <button class="btn btn-outline-secondary btn-sm btn-rect" @click="volver">
+              <i class="bi bi-arrow-left"></i>
+              <span class="d-none d-sm-inline ms-1">Volver</span>
+            </button>
 
-        <div class="d-flex gap-2 flex-column flex-sm-row w-100 w-sm-auto">
-          <!-- Exportar: oculto a visualizador -->
-          <button
-            v-if="!isVisualizador"
-            class="btn btn-success btn-sm btn-w-xs"
-            @click="exportarExcel"
-            :disabled="exportLoading || loading || itemsFiltrados.length===0"
-          >
-            <span v-if="exportLoading" class="spinner-border spinner-border-sm me-2" />
-            <i class="bi bi-file-earmark-excel me-1"></i> Exportar Excel
-          </button>
+            <div class="minw-0">
+              <h1 class="h6 fw-black mb-0">Ingreso de equipos</h1>
+              <div class="text-muted small">Registro y seguimiento de equipos por taller.</div>
 
-          <button class="btn btn-outline-secondary btn-sm btn-w-xs" @click="recargar()" :disabled="loading">
-            <i class="bi bi-arrow-clockwise me-1"></i> Actualizar
-          </button>
+              <div class="metrics mt-2">
+                <span class="badge text-bg-secondary badge-rect">
+                  Total: {{ itemsFiltrados.length }}
+                </span>
+                <span class="badge text-bg-dark badge-rect">
+                  Ingreso: {{ conteoPorEstado('INGRESO') }}
+                </span>
+                <span class="badge text-bg-info badge-rect">
+                  En proceso: {{ conteoPorEstado('EN PROCESO') }}
+                </span>
+                <span class="badge text-bg-warning text-dark badge-rect">
+                  En espera: {{ conteoPorEstado('EN ESPERA') }}
+                </span>
+                <span class="badge text-bg-success badge-rect">
+                  Entregado: {{ conteoPorEstado('ENTREGADO') }}
+                </span>
+              </div>
+            </div>
+          </div>
 
-          <button class="btn btn-outline-primary btn-sm btn-w-xs" @click="irHistorial" :disabled="loading">
-            <i class="bi bi-clock-history me-1"></i> Ver historial
-          </button>
+          <!-- Right -->
+          <div class="controls d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 w-100 w-lg-auto">
+            <div class="d-flex align-items-center gap-2 w-100">
+              <label class="small text-secondary mb-0 d-none d-sm-inline">Taller</label>
+              <select
+                class="form-select form-select-sm minw-260 flex-grow-1"
+                v-model="tallerActivo"
+                @change="recargar()"
+              >
+                <option v-for="t in TALLER_OPTS" :key="t" :value="t">{{ t }}</option>
+              </select>
+            </div>
+
+            <div class="d-flex gap-2 flex-wrap justify-content-sm-end">
+              <button
+                v-if="!isVisualizador"
+                class="btn btn-success btn-sm btn-rect"
+                @click="exportarExcel"
+                :disabled="exportLoading || loading || itemsFiltrados.length===0"
+              >
+                <span v-if="exportLoading" class="spinner-border spinner-border-sm me-2" />
+                <i class="bi bi-file-earmark-excel me-1"></i> Exportar
+              </button>
+
+              <button class="btn btn-outline-secondary btn-sm btn-rect" @click="recargar()" :disabled="loading">
+                <i class="bi bi-arrow-clockwise me-1"></i> Actualizar
+              </button>
+
+              <button class="btn btn-outline-primary btn-sm btn-rect" @click="irHistorial" :disabled="loading">
+                <i class="bi bi-clock-history me-1"></i> Historial
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- RESUMEN ESTADOS -->
-    <div class="mb-4 d-flex flex-wrap align-items-center gap-2">
-      <span class="badge rounded-pill text-bg-secondary">Total: {{ itemsFiltrados.length }}</span>
-      <span class="badge rounded-pill text-bg-dark">Ingreso: {{ conteoPorEstado('INGRESO') }}</span>
-      <span class="badge rounded-pill text-bg-info">En proceso: {{ conteoPorEstado('EN PROCESO') }}</span>
-      <span class="badge rounded-pill text-bg-warning text-dark">En espera: {{ conteoPorEstado('EN ESPERA') }}</span>
-      <span class="badge rounded-pill text-bg-success">Entregado: {{ conteoPorEstado('ENTREGADO') }}</span>
-    </div>
-
-    <!-- FORMULARIO (oculto a visualizador) -->
-    <div class="card shadow-sm border-0 mb-4 rounded-4" v-if="!isVisualizador">
-      <div class="card-header bg-dark text-white rounded-top-4">
+    <!-- ===== FORMULARIO (oculto a visualizador) ===== -->
+    <div class="card border-0 shadow-sm mb-4 box-rect" v-if="!isVisualizador">
+      <div class="card-header form-header header-rect">
         <div class="d-flex justify-content-between align-items-center">
-          <strong>{{ editMode ? 'Editar ingreso' : 'Ingresar equipo' }}</strong>
+          <strong class="d-flex align-items-center gap-2">
+            <span class="header-icon"><i class="bi bi-plus-circle"></i></span>
+            {{ editMode ? 'Editar ingreso' : 'Ingresar equipo' }}
+          </strong>
           <small class="text-white-50">Taller activo: {{ tallerActivo }}</small>
         </div>
       </div>
-      <div class="card-body">
+
+      <div class="card-body p-3 p-sm-4 position-relative">
         <form @submit.prevent="onSubmit" novalidate>
           <div class="row g-3">
 
-            <!-- Patente con autocompletado (por patente o nombre) -->
+            <!-- Patente -->
             <div class="col-12 col-md-4">
               <label class="form-label">Patente *</label>
               <input
@@ -84,24 +105,20 @@
                 @blur="normalizarPatente"
               >
               <datalist id="equipos-list">
-                <option
-                  v-for="e in equiposIndex"
-                  :key="e.id + '-p'"
-                  :value="e.patente"
-                >{{ e.nombre_equipo || '' }}</option>
-                <option
-                  v-for="e in equiposIndex"
-                  :key="e.id + '-n'"
-                  :value="e.nombre_equipo"
-                >{{ e.patente || '' }}</option>
+                <option v-for="e in equiposIndex" :key="e.id + '-p'" :value="e.patente">
+                  {{ e.nombre_equipo || '' }}
+                </option>
+                <option v-for="e in equiposIndex" :key="e.id + '-n'" :value="e.nombre_equipo">
+                  {{ e.patente || '' }}
+                </option>
               </datalist>
               <div v-if="errors.patente" class="invalid-feedback d-block">{{ errors.patente }}</div>
               <small class="form-text text-muted" v-if="equipoReferencia">
-                Referencia: {{ equipoReferencia }}
+                <i class="bi bi-info-circle me-1"></i>{{ equipoReferencia }}
               </small>
             </div>
 
-            <!-- Tipo de equipo desde Firestore (categorías) -->
+            <!-- Tipo de equipo -->
             <div class="col-12 col-sm-6 col-md-3">
               <label class="form-label">Tipo de equipo *</label>
               <select class="form-select" v-model="form.tipoEquipo">
@@ -113,18 +130,18 @@
             </div>
 
             <div class="col-6 col-md-3">
-              <label class="form-label">Fecha de recepción *</label>
+              <label class="form-label">Fecha recepción *</label>
               <input type="date" class="form-control" v-model="form.fechaRecepcion">
               <div v-if="errors.fechaRecepcion" class="invalid-feedback d-block">{{ errors.fechaRecepcion }}</div>
             </div>
 
             <div class="col-6 col-md-2">
-              <label class="form-label">Hora de recepción *</label>
+              <label class="form-label">Hora recepción *</label>
               <input type="time" class="form-control" v-model="form.horaRecepcion">
               <div v-if="errors.horaRecepcion" class="invalid-feedback d-block">{{ errors.horaRecepcion }}</div>
             </div>
 
-            <!-- Medición (valor + unidad) -->
+            <!-- Medición -->
             <div class="col-12 col-sm-6 col-md-3">
               <label class="form-label">Medición (Ingreso) *</label>
               <div class="input-group">
@@ -145,42 +162,45 @@
 
             <!-- Status -->
             <div class="col-12 col-sm-6 col-md-4">
-              <label class="form-label">Status de trabajos *</label>
+              <label class="form-label">Status *</label>
               <select class="form-select" v-model="form.status" :disabled="!editMode">
                 <option value="INGRESO">Ingreso</option>
                 <option value="EN PROCESO">En proceso</option>
                 <option value="EN ESPERA">En espera</option>
                 <option value="ENTREGADO">Entregado</option>
               </select>
-              <div class="form-text" v-if="!editMode">Se crea como <strong>INGRESO</strong>. Luego podrás cambiarlo.</div>
+              <div class="form-text" v-if="!editMode">Se crea como <strong>INGRESO</strong>.</div>
               <div v-if="errors.status" class="invalid-feedback d-block">{{ errors.status }}</div>
             </div>
 
             <div class="col-6 col-md-3">
-              <label class="form-label">Fecha aprox. de entrega</label>
+              <label class="form-label">Fecha aprox. entrega</label>
               <input type="date" class="form-control" v-model="form.fechaEntregaEstimada">
             </div>
 
             <div class="col-6 col-md-3">
-              <label class="form-label">Hora aprox. de entrega</label>
+              <label class="form-label">Hora aprox. entrega</label>
               <input type="time" class="form-control" v-model="form.horaEntregaEstimada">
             </div>
 
             <div class="col-12 d-flex flex-column flex-sm-row justify-content-end gap-2 mt-2">
-              <button type="button" class="btn btn-outline-secondary btn-w-xs" @click="limpiarFormulario" :disabled="saving">Limpiar</button>
-              <button type="submit" class="btn btn-primary btn-w-xs" :disabled="saving">
+              <button type="button" class="btn btn-outline-secondary btn-rect" @click="limpiarFormulario" :disabled="saving">
+                <i class="bi bi-eraser me-1"></i> Limpiar
+              </button>
+              <button type="submit" class="btn btn-primary btn-rect" :disabled="saving">
                 <span v-if="saving" class="spinner-border spinner-border-sm me-2"></span>
                 {{ editMode ? 'Actualizar' : 'Guardar' }}
               </button>
             </div>
+
           </div>
         </form>
       </div>
     </div>
 
-    <!-- FILTROS -->
-    <div class="card border-0 shadow-sm mb-3 rounded-4">
-      <div class="card-body">
+    <!-- ===== FILTROS ===== -->
+    <div class="card border-0 shadow-sm mb-3 box-rect">
+      <div class="card-body p-3 p-sm-4">
         <div class="row g-3 align-items-end">
           <div class="col-12 col-md-4">
             <label class="form-label">Buscar por patente / trabajos / status</label>
@@ -205,7 +225,7 @@
             </select>
           </div>
           <div class="col-12 col-md-2">
-            <button class="btn btn-outline-dark w-100 btn-w-xs" @click="limpiarFiltros">
+            <button class="btn btn-outline-dark w-100 btn-rect" @click="limpiarFiltros">
               <i class="bi bi-x-circle me-1"></i>Limpiar
             </button>
           </div>
@@ -213,12 +233,16 @@
       </div>
     </div>
 
-    <!-- TABLA -->
-    <div class="card shadow-sm border-0 rounded-4">
-      <div class="card-header bg-body-tertiary d-flex justify-content-between align-items-center rounded-top-4">
-        <strong>Equipos ingresados</strong>
+    <!-- ===== TABLA ===== -->
+    <div class="card border-0 shadow-sm box-rect">
+      <div class="card-header bg-body-tertiary d-flex justify-content-between align-items-center header-rect">
+        <strong class="d-flex align-items-center gap-2">
+          <span class="header-icon soft"><i class="bi bi-table"></i></span>
+          Equipos ingresados
+        </strong>
         <small class="text-muted">Taller: {{ tallerActivo }}</small>
       </div>
+
       <div class="card-body p-0">
         <div v-if="loading" class="text-center py-5">
           <div class="spinner-border"></div>
@@ -230,8 +254,8 @@
           </div>
 
           <div v-else class="table-responsive">
-            <table class="table table-bordered align-middle table-hover mb-0">
-              <thead class="table-light">
+            <table class="table table-bordered align-middle table-hover mb-0 table-pro">
+              <thead class="table-light sticky-head">
                 <tr>
                   <th class="text-center">Patente</th>
                   <th>Tipo de equipo</th>
@@ -241,21 +265,29 @@
                   <th class="d-none d-lg-table-cell" style="min-width: 360px;">Trabajos a realizar</th>
                   <th class="text-center">Status</th>
                   <th class="text-center d-none d-md-table-cell" style="min-width: 220px;">Tiempo aprox. entrega</th>
-                  <!-- Acciones solo si no es visualizador -->
                   <th v-if="!isVisualizador" class="text-center" style="min-width: 140px;">Acciones</th>
                 </tr>
               </thead>
+
               <tbody>
                 <tr v-for="it in itemsFiltrados" :key="it.id">
-                  <td class="text-center fw-semibold">{{ it.patente }}</td>
+                  <td class="text-center fw-semibold">
+                    <span class="badge text-bg-dark badge-rect">{{ it.patente }}</span>
+                  </td>
                   <td>{{ it.tipoEquipo }}</td>
                   <td class="text-center">{{ fFecha(it.fechaRecepcion) }}</td>
                   <td class="text-center d-none d-md-table-cell">{{ it.horaRecepcion || '—' }}</td>
                   <td class="text-center d-none d-sm-table-cell">{{ fMedicion(it.medicionValor, it.medicionUnidad) }}</td>
+
                   <td class="d-none d-lg-table-cell">
-                    <div class="text-wrap" style="white-space:pre-line;">{{ it.trabajos }}</div>
+                    <div class="text-wrap clamp-2" style="white-space:pre-line;">{{ it.trabajos }}</div>
                   </td>
-                  <td class="text-center"><span :class="badgeEstado(it.status)">{{ it.status }}</span></td>
+
+                  <td class="text-center">
+                    <!-- si tu badgeEstado trae rounded-pill, lo “cuadramos” con CSS abajo -->
+                    <span :class="badgeEstado(it.status)">{{ it.status }}</span>
+                  </td>
+
                   <td class="text-center d-none d-md-table-cell">
                     <div v-if="it.fechaEntregaEstimada || it.horaEntregaEstimada">
                       {{ fFecha(it.fechaEntregaEstimada) }}
@@ -264,12 +296,17 @@
                     <small v-else class="text-muted">—</small>
                   </td>
 
-                  <!-- Acciones solo si no es visualizador -->
                   <td v-if="!isVisualizador" class="text-center">
                     <div class="btn-group btn-group-sm">
-                      <button class="btn btn-outline-primary" @click="editar(it)"><i class="bi bi-pencil-square"></i></button>
-                      <button class="btn btn-outline-success" @click="marcarEntregado(it)" :disabled="it.status==='ENTREGADO'"><i class="bi bi-check2-circle"></i></button>
-                      <button class="btn btn-outline-danger" @click="eliminar(it)"><i class="bi bi-trash"></i></button>
+                      <button class="btn btn-outline-primary btn-rect" @click="editar(it)" title="Editar">
+                        <i class="bi bi-pencil-square"></i>
+                      </button>
+                      <button class="btn btn-outline-success btn-rect" @click="marcarEntregado(it)" :disabled="it.status==='ENTREGADO'" title="Marcar entregado">
+                        <i class="bi bi-check2-circle"></i>
+                      </button>
+                      <button class="btn btn-outline-danger btn-rect" @click="eliminar(it)" title="Eliminar">
+                        <i class="bi bi-trash"></i>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -281,12 +318,14 @@
       </div>
     </div>
 
-    <!-- MODAL CONFIRMACIÓN (entregado) -->
+    <!-- ===== MODAL CONFIRMACIÓN (entregado) ===== -->
     <div class="modal fade show" tabindex="-1" style="display:block;" v-if="entregaConfirm.visible" @click.self="entregaConfirm.visible=false">
       <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content rounded-4">
-          <div class="modal-header">
-            <h5 class="modal-title">Confirmar entrega</h5>
+        <div class="modal-content modal-pro box-rect">
+          <div class="modal-header header-rect">
+            <h5 class="modal-title fw-bold">
+              <i class="bi bi-check2-circle me-2 text-success"></i>Confirmar entrega
+            </h5>
             <button class="btn-close" @click="entregaConfirm.visible=false"></button>
           </div>
           <div class="modal-body">
@@ -294,8 +333,8 @@
             <div class="form-text mt-2">Se registrará la fecha/hora actual como entrega real.</div>
           </div>
           <div class="modal-footer">
-            <button class="btn btn-outline-secondary btn-w-xs" @click="entregaConfirm.visible=false">Cancelar</button>
-            <button class="btn btn-success btn-w-xs" @click="aceptarEntrega" :disabled="entregaConfirm.saving">
+            <button class="btn btn-outline-secondary btn-rect" @click="entregaConfirm.visible=false">Cancelar</button>
+            <button class="btn btn-success btn-rect" @click="aceptarEntrega" :disabled="entregaConfirm.saving">
               <span v-if="entregaConfirm.saving" class="spinner-border spinner-border-sm me-2" />
               Confirmar
             </button>
@@ -306,6 +345,7 @@
 
   </div>
 </template>
+
 
 <script setup>
 import { ref, computed, onMounted, defineOptions } from 'vue'
@@ -346,7 +386,7 @@ const loading = ref(true)
 const saving = ref(false)
 const exportLoading = ref(false)
 
-const tallerActivo = ref(TALLER_OPTS[0]) // default (MAYÚSCULA)
+const tallerActivo = ref(TALLER_OPTS[0])
 const items = ref([])
 
 const q = ref('')
@@ -370,11 +410,11 @@ const form = ref({
 const errors = ref({})
 
 /* ---- categorías dinámicas (tipo de equipo) ---- */
-const tipoEquipoOpts = ref([])     // en MAYÚSCULA
+const tipoEquipoOpts = ref([])
 const tipoEquipoCargando = ref(false)
 
 /* ---- índice de equipos para autocompletado ---- */
-const equiposIndex = ref([]) // [{id, patente, patenteUpper, nombre_equipo, nombreUpper, categoriaUpper}]
+const equiposIndex = ref([])
 const equipoReferencia = computed(() => {
   const v = (form.value.patente || '').trim()
   if (!v) return ''
@@ -416,7 +456,7 @@ const badgeEstado = (s) => {
   if (v === 'ENTREGADO') return 'badge rounded-pill text-bg-success'
   if (v === 'EN ESPERA') return 'badge rounded-pill text-bg-warning text-dark'
   if (v === 'EN PROCESO') return 'badge rounded-pill text-bg-info'
-  return 'badge rounded-pill text-bg-dark' // INGRESO
+  return 'badge rounded-pill text-bg-dark'
 }
 const conteoPorEstado = (s) => itemsFiltrados.value.filter(i => i.status === s).length
 
@@ -547,7 +587,7 @@ function normalizarPatente() {
 }
 
 /* --------------------------
-   FIRESTORE: cargar/guardar por taller (upper + legacy)
+   FIRESTORE: cargar/guardar por taller
 --------------------------- */
 async function cargarItems() {
   items.value = []
@@ -570,10 +610,7 @@ async function cargarItems() {
       list.push(...snap.docs.map(d => ({ id: d.id, ...(d.data() || {}) })))
     } catch (err) {
       if (err?.code === 'failed-precondition') {
-        const qy2 = query(
-          collection(db, 'ingreso_equipos'),
-          where('taller', '==', nombre)
-        )
+        const qy2 = query(collection(db, 'ingreso_equipos'), where('taller', '==', nombre))
         const snap2 = await getDocs(qy2)
         list.push(...snap2.docs.map(d => ({ id: d.id, ...(d.data() || {}) })))
       } else {
@@ -600,7 +637,6 @@ async function recargar() {
   }
 }
 
-/* ---- historial auxiliar ---- */
 async function logHistorial(ingresoId, taller, accion, detalle = '', extra = {}) {
   const auth = getAuth()
   const user = auth.currentUser
@@ -621,7 +657,7 @@ async function logHistorial(ingresoId, taller, accion, detalle = '', extra = {})
 
 /* ---- submit (protegido) ---- */
 async function onSubmit() {
-  if (isVisualizador.value) { alert('Tu rol es visualizador. Solo puedes ver historial.'); return }
+  if (isVisualizador.value) { alert('Tu rol es visualizador. Solo lectura.'); return }
   if (!validar()) return
   saving.value = true
   try {
@@ -702,7 +738,7 @@ async function eliminar(item) {
 }
 
 /* --------------------------
-   ENTREGADO (protegido)
+   ENTREGADO
 --------------------------- */
 const entregaConfirm = ref({ visible: false, item: null, saving: false })
 function marcarEntregado(it) {
@@ -753,7 +789,7 @@ const itemsFiltrados = computed(() => {
   if (orden.value === 'reciente') {
     arr.sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
   } else if (orden.value === 'antiguo') {
-    arr.sort((a,b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0))
+    arr.sort((a) => (a.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
   } else if (orden.value === 'patente') {
     arr.sort((a,b) => String(a.patente||'').localeCompare(String(b.patente||''), 'es', { sensitivity: 'base' }))
   }
@@ -777,7 +813,7 @@ function irHistorial () {
 }
 
 /* --------------------------
-   EXCEL (protegido)
+   EXCEL (sin cambios)
 --------------------------- */
 async function exportarExcel() {
   if (isVisualizador.value) { alert('No disponible para visualizador.'); return }
@@ -865,7 +901,7 @@ async function exportarExcel() {
 }
 
 /* --------------------------
-   MONTAJE (con carga de rol)
+   MONTAJE
 --------------------------- */
 onMounted(async () => {
   try {
@@ -894,27 +930,113 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* ===== Background ===== */
+.ingreso-page{
+  min-height: calc(100vh - 56px);
+  background:
+    radial-gradient(1200px 650px at 15% 10%, rgba(220, 53, 69, 0.10), transparent 60%),
+    radial-gradient(900px 550px at 85% 20%, rgba(13, 110, 253, 0.08), transparent 60%),
+    linear-gradient(180deg, #ffffff, #fbfbfc);
+}
+
+/* ===== Rect helpers ===== */
+.btn-rect{
+  border-radius: 10px;
+  font-weight: 800;
+}
+.badge-rect{
+  border-radius: 10px;
+  font-weight: 800;
+}
+.box-rect{
+  border-radius: 12px !important;
+}
+.header-rect{
+  border-top-left-radius: 12px !important;
+  border-top-right-radius: 12px !important;
+}
+
+/* For badges that still come with rounded-pill from badgeEstado() */
+:deep(.badge.rounded-pill){
+  border-radius: 10px !important;
+  font-weight: 800;
+}
+
+/* ===== Hero ===== */
+.hero{
+  border-radius: 12px;
+  position: relative;
+}
+.hero-bg{
+  position:absolute;
+  inset:0;
+  background: linear-gradient(90deg, rgba(220,53,69,.10), rgba(170,25,40,.05));
+}
+.fw-black{ font-weight: 900; }
+
+/* Métricas */
+.metrics{
+  display:flex;
+  flex-wrap:wrap;
+  gap:.45rem;
+}
+
+/* Controls */
+.controls{ max-width: 100%; }
+.minw-260{ min-width: 260px; }
+@media (max-width: 575.98px){
+  .minw-260{ min-width: 0 !important; }
+}
+
+/* Cards */
+.card{ border-radius: 12px; }
+
+/* Header form */
+.form-header{
+  background: linear-gradient(90deg, rgba(33,37,41,1), rgba(20,20,20,1));
+  color:#fff;
+  border:0;
+}
+
+/* Header icon */
+.header-icon{
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(255,255,255,.18);
+  color:#fff;
+}
+.header-icon.soft{
+  background: rgba(220,53,69,.12);
+  color:#dc3545;
+}
+
+/* Table */
 .table td, .table th { vertical-align: middle; }
-.card-header { font-weight: 700; }
-.form-label { font-weight: 600; }
+.table-pro thead th{ font-weight: 900; }
+.table-pro tbody tr:hover{ background: rgba(220,53,69,.04); }
 
-/* Cards más “soft” */
-.card { border-radius: 16px; }
-
-/* ====== Utilidades responsivas ====== */
-.btn-w-xs { width: 100%; }
-@media (min-width: 576px) {
-  .btn-w-xs { width: auto; }
+.sticky-head{
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
-/* Select con mínimo ancho desde SM */
-.minw-220 { min-width: 220px; }
-@media (max-width: 575.98px) {
-  .minw-220 { min-width: 0 !important; }
+.clamp-2{
+  display:-webkit-box;
+  -webkit-box-orient: vertical;
+  overflow:hidden;
 }
 
-/* Tipografía más compacta en móviles */
-@media (max-width: 575.98px) {
-  h2 { font-size: 1.15rem; }
+/* Modal */
+.modal{ background: rgba(0,0,0,.45); }
+.modal-pro{
+  border-radius: 12px;
+  border: 0;
+  box-shadow: 0 20px 60px rgba(0,0,0,.22);
 }
 </style>
+

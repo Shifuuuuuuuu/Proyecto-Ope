@@ -1,3 +1,4 @@
+<!-- src/views/HomeView.vue -->
 <template>
   <div class="bg-white">
     <div class="container-fluid py-4 px-3">
@@ -33,9 +34,7 @@
                       <span class="badge text-bg-light border text-truncate" :title="c.nombre" style="max-width: 60ch;">
                         {{ c.nombre }}
                       </span>
-                      <div
-                        class="small text-muted d-flex flex-column flex-sm-row align-items-sm-center gap-1"
-                      >
+                      <div class="small text-muted d-flex flex-column flex-sm-row align-items-sm-center gap-1">
                         <!-- Bloque: Último día registrado -->
                         <div class="d-flex align-items-center flex-wrap gap-1">
                           <span class="text-nowrap">Último día registrado:</span>
@@ -108,23 +107,27 @@
 
       <!-- Accesos rápidos + Volver -->
       <div class="d-flex flex-wrap justify-content-start gap-2 mb-4">
-        <button class="btn btn-outline-secondary"
-                @click="$router.back()"
-                title="Volver a la página anterior">
+        <button
+          class="btn btn-outline-secondary"
+          @click="$router.back()"
+          title="Volver a la página anterior"
+        >
           <i class="bi bi-arrow-left-circle me-1"></i> Volver al menú
         </button>
 
         <router-link
           v-if="estaLogueado"
           class="btn btn-outline-secondary"
-          to="/historial-operatividad">
+          to="/historial-operatividad"
+        >
           <i class="bi bi-clock-history me-1"></i> Historial
         </router-link>
 
         <router-link
           v-if="rolUsuario === 'operador' || rolUsuario === 'admin'"
           class="btn btn-outline-secondary"
-          to="/mis-equipos">
+          to="/mis-equipos"
+        >
           <i class="bi bi-tools me-1"></i> Editor Equipos
         </router-link>
       </div>
@@ -169,59 +172,79 @@
                       {{ contrato.activo !== false ? 'Activo' : 'Inactivo' }}
                     </span>
                   </div>
+
                   <!-- Acciones -->
                   <div class="contrato-row__actions">
                     <div class="switches">
                       <div class="form-check form-switch me-2">
-                        <input class="form-check-input" type="checkbox" v-model="modoAcciones" :id="`swHist-${contrato.id}`">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          v-model="modoAcciones"
+                          :id="`swHist-${contrato.id}`"
+                        />
                         <label class="form-check-label d-none d-md-inline" :for="`swHist-${contrato.id}`">Historial</label>
                       </div>
 
                       <!-- Selección múltiple -->
                       <div class="form-check form-switch me-2">
-                        <input class="form-check-input" type="checkbox" v-model="selectionMode" :id="`swSel-${contrato.id}`">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          v-model="selectionMode"
+                          :id="`swSel-${contrato.id}`"
+                        />
                         <label class="form-check-label d-none d-md-inline" :for="`swSel-${contrato.id}`">Selección múltiple</label>
                       </div>
                     </div>
 
                     <div class="actions-toolbar">
                       <button class="btn btn-outline-secondary" @click="toggleZoomTabla">
-                        <i :class="zoomTabla ? 'bi bi-zoom-in' : 'bi bi-zoom-out'"
-                        title="Cambiar zoom de tabla"></i>
+                        <i :class="zoomTabla ? 'bi bi-zoom-in' : 'bi bi-zoom-out'" title="Cambiar zoom de tabla"></i>
                       </button>
 
-                      <button class="btn btn-outline-primary"
-                              @click="toggleExpand(contrato.id)"
-                              :disabled="loadingContrato[contrato.id]"
-                              title="Mostrar/Ocultar detalle del contrato">
+                      <button
+                        class="btn btn-outline-primary"
+                        @click="toggleExpand(contrato.id)"
+                        :disabled="loadingContrato[contrato.id]"
+                        title="Mostrar/Ocultar detalle del contrato"
+                      >
                         <i :class="expandedContrato === contrato.id ? 'bi bi-eye-slash-fill' : 'bi bi-eye-fill'"></i>
                       </button>
 
-                      <button class="btn btn-outline-primary"
-                              @click="toggleMes(contrato.id)"
-                              :disabled="loadingContrato[contrato.id]"
-                              title="Navegar entre meses">
+                      <button
+                        class="btn btn-outline-primary"
+                        @click="toggleMes(contrato.id)"
+                        :disabled="loadingContrato[contrato.id]"
+                        title="Navegar entre meses"
+                      >
                         <i class="bi" :class="mesOffset === 0 ? 'bi-arrow-left-circle' : 'bi-arrow-right-circle'"></i>
                       </button>
 
-                      <button class="btn btn-outline-success"
-                              @click="descargarExcelContrato(contrato)"
-                              :disabled="descargandoExcel || !canDescargarExcel || loadingContrato[contrato.id]"
-                              :title="!canDescargarExcel ? 'Tu rol no permite descargar Excel' : (descargandoExcel ? 'Generando…' : 'Descargar Excel')">
+                      <button
+                        class="btn btn-outline-success"
+                        @click="descargarExcelContrato(contrato)"
+                        :disabled="descargandoExcel || !canDescargarExcel || loadingContrato[contrato.id]"
+                        :title="!canDescargarExcel ? 'Tu rol no permite descargar Excel' : (descargandoExcel ? 'Generando…' : 'Descargar Excel')"
+                      >
                         <i class="bi" :class="descargandoExcel ? 'bi-hourglass-split' : 'bi-download'"></i>
                       </button>
 
-                      <button class="btn btn-outline-dark"
-                              @click="$router.push({ name:'ContratoStats', params:{ contratoId: contrato.id }})"
-                              :disabled="loadingContrato[contrato.id]"
-                              title="Ver estadísticas de operatividad del contrato">
+                      <button
+                        class="btn btn-outline-dark"
+                        @click="$router.push({ name:'ContratoStats', params:{ contratoId: contrato.id }})"
+                        :disabled="loadingContrato[contrato.id]"
+                        title="Ver estadísticas de operatividad del contrato"
+                      >
                         <i class="bi bi-bar-chart"></i>
                       </button>
 
-                      <button class="btn btn-outline-danger"
-                              @click="$router.push({ name: 'OTsPage', params:{ contratoId: contrato.id }})"
-                              :disabled="loadingContrato[contrato.id]"
-                              title="Cargar y ver OTs de equipos en Falla o Mantención">
+                      <button
+                        class="btn btn-outline-danger"
+                        @click="$router.push({ name: 'OTsPage', params:{ contratoId: contrato.id }})"
+                        :disabled="loadingContrato[contrato.id]"
+                        title="Cargar y ver OTs de equipos en Falla o Mantención"
+                      >
                         <i class="bi bi-file-earmark-text"></i>
                       </button>
                     </div>
@@ -229,7 +252,10 @@
                 </div>
 
                 <!-- Barra de acciones por selección -->
-                <div v-if="expandedContrato === contrato.id && selectedCellsCount > 0" class="alert alert-dark d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2 py-2 px-3">
+                <div
+                  v-if="expandedContrato === contrato.id && selectedCellsCount > 0"
+                  class="alert alert-dark d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2 py-2 px-3"
+                >
                   <div class="d-flex align-items-center gap-3">
                     <strong class="me-1">Seleccionadas:</strong>
                     <span class="badge text-bg-secondary">{{ selectedCellsCount }}</span>
@@ -252,6 +278,7 @@
                     </button>
                   </div>
                 </div>
+
                 <!-- Detalle contrato -->
                 <div v-if="expandedContrato === contrato.id" class="scroll-equipos">
                   <div v-if="loadingContrato[contrato.id]" class="text-center py-4">
@@ -307,17 +334,19 @@
 
                                   <template v-for="(dia, diaIndex) in diasPorContratoMap[contrato.id]" :key="'turno-' + dia">
                                     <!-- A -->
-                                    <td class="position-relative p-1"
-                                        :class="{ 'cell-selected': isSelected(equipo.id, 'A', dia) }"
-                                        :data-eid="equipo.id"
-                                        data-turno="A"
-                                        :data-dia="dia"
-                                        @mousedown="handleCellMouseDown($event, equipo.id, 'A', dia, contrato.id)"
-                                        @mouseenter="onCellMouseEnter(equipo.id, 'A', dia, contrato.id)"
-                                        @touchstart="handleCellTouchStart($event, equipo.id, 'A', dia, contrato.id)"
-                                        @touchmove="onCellTouchMove($event)"
-                                        @touchend="onCellTouchEnd"
-                                        @click="onCellClick(equipo.id, 'A', dia, contrato.id, categoria, rowIndex, diaIndex)">
+                                    <td
+                                      class="position-relative p-1"
+                                      :class="{ 'cell-selected': isSelected(equipo.id, 'A', dia) }"
+                                      :data-eid="equipo.id"
+                                      data-turno="A"
+                                      :data-dia="dia"
+                                      @mousedown="handleCellMouseDown($event, equipo.id, 'A', dia, contrato.id)"
+                                      @mouseenter="onCellMouseEnter(equipo.id, 'A', dia, contrato.id)"
+                                      @touchstart="handleCellTouchStart($event, equipo.id, 'A', dia, contrato.id)"
+                                      @touchmove="onCellTouchMove($event)"
+                                      @touchend="onCellTouchEnd"
+                                      @click="onCellClick(equipo.id, 'A', dia, contrato.id, categoria, rowIndex, diaIndex)"
+                                    >
                                       <span class="cell-letter-visible">
                                         {{ getValorCelda(`${equipo.id}-A-${dia}`) }}
                                       </span>
@@ -337,24 +366,28 @@
                                         :title="generarTooltip(`${equipo.id}-A-${dia}`)"
                                       />
                                       <div class="celda-actions" v-if="!modoAcciones && !isVisualizador && !selectionMode">
-                                        <button class="btn btn-light btn-xs"
-                                                title="Agregar/Editar comentario"
-                                                @click.stop="abrirComentario(`${equipo.id}`, 'A', dia)">📝</button>
+                                        <button
+                                          class="btn btn-light btn-xs"
+                                          title="Agregar/Editar comentario"
+                                          @click.stop="abrirComentario(`${equipo.id}`, 'A', dia)"
+                                        >📝</button>
                                       </div>
                                     </td>
 
                                     <!-- B -->
-                                    <td class="position-relative p-1"
-                                        :class="{ 'cell-selected': isSelected(equipo.id, 'B', dia) }"
-                                        :data-eid="equipo.id"
-                                        data-turno="B"
-                                        :data-dia="dia"
-                                        @mousedown="handleCellMouseDown($event, equipo.id, 'B', dia, contrato.id)"
-                                        @mouseenter="onCellMouseEnter(equipo.id, 'B', dia, contrato.id)"
-                                        @touchstart="handleCellTouchStart($event, equipo.id, 'B', dia, contrato.id)"
-                                        @touchmove="onCellTouchMove($event)"
-                                        @touchend="onCellTouchEnd"
-                                        @click="onCellClick(equipo.id, 'B', dia, contrato.id, categoria, rowIndex, diaIndex)">
+                                    <td
+                                      class="position-relative p-1"
+                                      :class="{ 'cell-selected': isSelected(equipo.id, 'B', dia) }"
+                                      :data-eid="equipo.id"
+                                      data-turno="B"
+                                      :data-dia="dia"
+                                      @mousedown="handleCellMouseDown($event, equipo.id, 'B', dia, contrato.id)"
+                                      @mouseenter="onCellMouseEnter(equipo.id, 'B', dia, contrato.id)"
+                                      @touchstart="handleCellTouchStart($event, equipo.id, 'B', dia, contrato.id)"
+                                      @touchmove="onCellTouchMove($event)"
+                                      @touchend="onCellTouchEnd"
+                                      @click="onCellClick(equipo.id, 'B', dia, contrato.id, categoria, rowIndex, diaIndex)"
+                                    >
                                       <span class="cell-letter-visible">
                                         {{ getValorCelda(`${equipo.id}-B-${dia}`) }}
                                       </span>
@@ -374,9 +407,11 @@
                                         :title="generarTooltip(`${equipo.id}-B-${dia}`)"
                                       />
                                       <div class="celda-actions" v-if="!modoAcciones && !isVisualizador && !selectionMode">
-                                        <button class="btn btn-light btn-xs"
-                                                title="Agregar/Editar comentario"
-                                                @click.stop="abrirComentario(`${equipo.id}`, 'B', dia)">📝</button>
+                                        <button
+                                          class="btn btn-light btn-xs"
+                                          title="Agregar/Editar comentario"
+                                          @click.stop="abrirComentario(`${equipo.id}`, 'B', dia)"
+                                        >📝</button>
                                       </div>
                                     </td>
                                   </template>
@@ -462,9 +497,15 @@
             </div>
           </div>
 
-          <!-- MODAL: Gestor de Documentos por Equipo -->
-          <div class="modal fade show" tabindex="-1" style="display:block;" v-if="docsVisible" @click.self="cerrarGestorDocs">
-            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+          <!-- MODAL: Gestor de Documentos por Equipo (más grande / casi pantalla completa) -->
+          <div
+            class="modal fade show docs-modal"
+            tabindex="-1"
+            style="display:block;"
+            v-if="docsVisible"
+            @click.self="cerrarGestorDocs"
+          >
+            <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered">
               <div class="modal-content">
                 <div class="modal-header">
                   <h5 class="modal-title">
@@ -568,7 +609,7 @@
                   </div>
                 </div>
 
-                <!-- VISOR DE IMAGEN -->
+                <!-- VISOR DE IMAGEN (pantalla completa) -->
                 <transition name="fade">
                   <div v-if="preview.abierto" class="preview-overlay" @click.self="cerrarPreview">
                     <div class="preview-toolbar">
@@ -602,7 +643,7 @@
                   </div>
                 </transition>
 
-                <!-- VISOR PDF -->
+                <!-- VISOR PDF (pantalla completa / casi toda la pantalla) -->
                 <transition name="fade">
                   <div v-if="pdfViewer.abierto" class="pdf-overlay" @click.self="cerrarPDF">
                     <div class="pdf-toolbar">
@@ -703,21 +744,26 @@ defineOptions({ name: 'HomeView' })
 
 /* ======================= DOCUMENTOS POR EQUIPO ======================= */
 const descargandoExcel = ref(false)
+
 function esPDF(mime = '', nombre = '') {
   const t = (mime || '').toLowerCase()
   if (t.startsWith('application/pdf')) return true
   const ext = (nombre.split('.').pop() || '').toLowerCase()
   return ext === 'pdf'
 }
+
 const pdfViewer = ref({ abierto: false, url: '', nombre: '' })
+
 function abrirPDF(d) {
   if (pdfViewer.value.url) URL.revokeObjectURL(pdfViewer.value.url)
   pdfViewer.value = { abierto: true, url: blobUrl(d), nombre: d.nombre }
 }
+
 function cerrarPDF() {
   if (pdfViewer.value.url) URL.revokeObjectURL(pdfViewer.value.url)
   pdfViewer.value = { abierto: false, url: '', nombre: '' }
 }
+
 function blobUrl(d) {
   const tipoOk = normalizaMime(d.tipo, d.nombre)
   const bin = atob(d.base64)
@@ -744,12 +790,14 @@ function abrirGestorDocs(equipo) {
   docsVisible.value = true
   cargarDocsEquipo()
 }
+
 function cerrarGestorDocs() {
   if (subiendoDocs.value) return
   docsVisible.value = false
   docsEquipo.value = []
   textoProgresoSubida.value = ''
 }
+
 async function cargarDocsEquipo() {
   cargandoDocs.value = true
   try {
@@ -764,7 +812,9 @@ async function cargarDocsEquipo() {
     cargandoDocs.value = false
   }
 }
+
 function dispararFilePicker() { fileInputRef.value?.click?.() }
+
 function leerArchivoComoBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -778,6 +828,7 @@ function leerArchivoComoBase64(file) {
     reader.readAsArrayBuffer(file)
   })
 }
+
 function mimeFromExt(nombre = '') {
   const ext = (nombre.split('.').pop() || '').toLowerCase()
   const mapa = {
@@ -788,6 +839,7 @@ function mimeFromExt(nombre = '') {
   }
   return mapa[ext] || ''
 }
+
 function normalizaMime(tipo, nombre) {
   const t = (tipo || '').toLowerCase()
   if (!t || t === 'application/octet-stream') {
@@ -796,29 +848,37 @@ function normalizaMime(tipo, nombre) {
   }
   return t
 }
+
 function esImagen(mime = '', nombre = '') {
   const t = (mime || '').toLowerCase()
   if (t.startsWith('image/')) return true
   const ext = (nombre.split('.').pop() || '').toLowerCase()
   return ['jpg','jpeg','png','gif','webp','bmp','heic','heif','svg'].includes(ext)
 }
+
 function dataUrl(d) {
   const tipoOk = normalizaMime(d.tipo, d.nombre)
   return `data:${tipoOk};base64,${d.base64}`
 }
-const imagenesEquipo = computed(() => docsEquipo.value.filter(d => esImagen(d.tipo)))
+
+/* ✅ FIX: considerar extensión también */
+const imagenesEquipo = computed(() => docsEquipo.value.filter(d => esImagen(d.tipo, d.nombre)))
+
 const preview = ref({ abierto: false, index: 0, zoom: 1 })
 const imagenActual = computed(() => imagenesEquipo.value[preview.value.index] || null)
+
 function abrirPreviewIndex(i = 0) {
   if (!imagenesEquipo.value.length) return
   preview.value.index = Math.min(Math.max(0, i), imagenesEquipo.value.length - 1)
   preview.value.zoom = 1
   preview.value.abierto = true
 }
+
 function abrirPreviewPorId(id) {
   const idx = imagenesEquipo.value.findIndex(d => d._id === id)
   if (idx >= 0) abrirPreviewIndex(idx)
 }
+
 function cerrarPreview() { preview.value.abierto = false; preview.value.zoom = 1 }
 function nextPreview() { if (preview.value.index < imagenesEquipo.value.length - 1) { preview.value.index++; preview.value.zoom = 1 } }
 function prevPreview() { if (preview.value.index > 0) { preview.value.index--; preview.value.zoom = 1 } }
@@ -826,6 +886,7 @@ function zoomIn()  { preview.value.zoom = Math.min(preview.value.zoom + 0.2, 4) 
 function zoomOut() { preview.value.zoom = Math.max(preview.value.zoom - 0.2, 0.25) }
 function resetZoom(){ preview.value.zoom = 1 }
 function onWheelZoom(e){ if (e.deltaY > 0) zoomOut(); else zoomIn() }
+
 function keyHandler(e){
   if (!preview.value.abierto) return
   if (e.key === 'Escape') { e.preventDefault(); cerrarPreview() }
@@ -835,7 +896,15 @@ function keyHandler(e){
   if (e.key === '-') { e.preventDefault(); zoomOut() }
   if (e.key === '0') { e.preventDefault(); resetZoom() }
 }
+
 watch(docsVisible, (v)=>{ if (v) window.addEventListener('keydown', keyHandler); else { window.removeEventListener('keydown', keyHandler); cerrarPreview() } })
+
+/* ✅ Bloquear scroll del body cuando visor (PDF o imagen) está abierto */
+watch(
+  () => (preview.value.abierto || pdfViewer.value.abierto),
+  (v) => { document.body.style.overflow = v ? 'hidden' : '' }
+)
+
 async function onFilesSelected(e) {
   const files = Array.from(e.target.files || [])
   if (!files.length) return
@@ -871,6 +940,7 @@ async function onFilesSelected(e) {
     setTimeout(() => { subiendoDocs.value = false; textoProgresoSubida.value = '' }, 400)
   }
 }
+
 async function eliminarDoc(d) {
   const ok = confirm(`¿Eliminar el documento "${d.nombre}"?`)
   if (!ok) return
@@ -931,7 +1001,6 @@ onMounted(() => {
 
 /* Carga por contrato */
 const loadingContrato = ref({})
-
 const equiposByContrato = ref({})
 const operByContrato = ref({})
 const expandedContrato = ref(null)
@@ -1005,6 +1074,7 @@ function onCellKeydown(e, contratoId, categoria, rowIdx, diaIdx, turno, totalRow
   const newTurno = (col % 2 === 0) ? 'A' : 'B'
   focusCell(contratoId, categoria, r, newDia, newTurno)
 }
+
 function onCellInput(e, clave, dia, jornada, contratoId, categoria, rowIdx, diaIdx, totalRows, totalDias) {
   let val = (e.target.value || '').toUpperCase().slice(0,1)
   e.target.value = val
@@ -1019,6 +1089,7 @@ function onCellInput(e, clave, dia, jornada, contratoId, categoria, rowIdx, diaI
 const contratosUsuarioValidos = computed(() =>
   (contratosUsuario.value || []).filter(c => c && c.id && c.activo !== false)
 )
+
 const emojiContrato = (nombreContrato) => {
   const nombre = (nombreContrato || '').toLowerCase()
   if (nombre.includes('olivar') || nombre.includes('san bernardo')) return '🏙️'
@@ -1032,6 +1103,7 @@ const emojiContrato = (nombreContrato) => {
   if (nombre.includes('alto') || nombre.includes('maipo')) return '⛰️'
   return '📁'
 }
+
 const formatearFechaHora = (ts) => {
   if (!ts) return '—'
   const d = ts.toDate ? ts.toDate() : new Date(ts)
@@ -1042,12 +1114,14 @@ const formatearFechaHora = (ts) => {
   const mi = String(d.getMinutes()).padStart(2, '0')
   return `${dd}-${mm}-${yyyy} ${hh}:${mi}`
 }
+
 const colorCelda = (valor) => {
   if (valor === 'D') return 'bg-success text-white'
   if (valor === 'F') return 'bg-danger text-white'
   if (valor === 'M') return 'bg-warning text-dark'
   return ''
 }
+
 const puedeEditar = (docTimestamp) => {
   if (!docTimestamp) return true
   const tiempoRegistro = docTimestamp.toDate ? docTimestamp.toDate() : new Date(docTimestamp)
@@ -1060,7 +1134,9 @@ const puedeEditar = (docTimestamp) => {
   if (esHoy) return diferenciaHoras <= 4
   return true
 }
+
 const getValorCelda = (clave) => inputValues.value[clave] || ''
+
 const generarTooltip = (clave) => {
   const estadoLetra = getValorCelda(clave)
   if (!estadoLetra) return ''
@@ -1072,21 +1148,11 @@ const generarTooltip = (clave) => {
   return `Estado: ${estadoTexto}\nObs: ${obs}\nUsuario: ${usuario}\nÚlt. edición: ${cuando}`
 }
 
-/* ======================= ALERTA 48H SIN REGISTRO ======================= */
 /* ======================= ALERTA: CONTRATOS NO AL DÍA ======================= */
-/**
- * estadoContratos[contratoId] = {
- *   tieneRegistros: boolean,
- *   ultimaFecha: Date | null,      // último día con registro (por fecha de operatividad)
- *   ultimoRegistro: Date | null,   // último timestamp/fecha real de inserción
- *   diasFaltantes: Date[]          // días sin registro desde ultimaFecha+1 hasta hoy
- * }
- */
 const estadoContratos = ref({})
 const checkingInactividad = ref(false)
 const showAlert = ref(false)
 
-// Normalizar fecha a solo día (00:00)
 function normalizaSoloFecha(d) {
   const dt = d instanceof Date ? d : (d?.toDate ? d.toDate() : new Date(d))
   return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), 0, 0, 0, 0)
@@ -1100,7 +1166,6 @@ function formatearSoloFecha(d) {
   return `${dd}-${mm}-${yyyy}`
 }
 
-// Reutilizamos maxDateSafe para decidir cuál timestamp es más "reciente"
 function maxDateSafe(a, b) {
   const da = a ? (a.toDate ? a.toDate() : new Date(a)) : null
   const db = b ? (b.toDate ? b.toDate() : new Date(b)) : null
@@ -1108,22 +1173,14 @@ function maxDateSafe(a, b) {
   return da || db || null
 }
 
-/**
- * Calcula:
- *  - última fecha registrada (por campo `fecha`)
- *  - días sin registro desde esa fecha hasta hoy
- *  - último timestamp real de escritura (por si lo quieres usar después)
- */
 async function fetchEstadoContrato(contratoId) {
   const hoy = new Date()
   const hoyDia = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0, 0)
-
-  // Puedes ajustar el inicio del rango (por ahora: desde el primer día del mes actual)
   const inicioRango = new Date(hoy.getFullYear(), hoy.getMonth(), 1, 0, 0, 0, 0)
 
   let ultimaFecha = null
   let ultimoRegistro = null
-  const fechasSet = new Set() // yyyy-mm-dd de los días que SÍ tienen registro
+  const fechasSet = new Set()
 
   try {
     const q1 = query(
@@ -1141,7 +1198,7 @@ async function fetchEstadoContrato(contratoId) {
       const f = d.fecha?.toDate ? d.fecha.toDate() : new Date(d.fecha)
       const fDia = normalizaSoloFecha(f)
 
-      const key = fDia.toISOString().slice(0, 10) // yyyy-mm-dd
+      const key = fDia.toISOString().slice(0, 10)
       fechasSet.add(key)
 
       if (!ultimaFecha || fDia > ultimaFecha) ultimaFecha = fDia
@@ -1155,7 +1212,6 @@ async function fetchEstadoContrato(contratoId) {
     console.error('Error leyendo operatividad para alerta:', e)
   }
 
-  // Sin ningún registro en el rango
   if (!ultimaFecha) {
     return {
       tieneRegistros: false,
@@ -1165,7 +1221,6 @@ async function fetchEstadoContrato(contratoId) {
     }
   }
 
-  // Construimos los días faltantes desde (ultimaFecha + 1 día) hasta hoy
   const diasFaltantes = []
   const desde = new Date(
     ultimaFecha.getFullYear(),
@@ -1210,13 +1265,9 @@ const contratosAtrasados = computed(() => {
         horasSinRegistrar = (ahora.getTime() - dt.getTime()) / (1000 * 60 * 60)
         inactivo48h = horasSinRegistrar >= 48
       } else if (!tieneRegistros) {
-        // Nunca ha registrado nada → lo consideramos como inactivo +48h
         inactivo48h = true
       }
 
-      // 🔴 SOLO marcamos atrasado si:
-      // - tiene días sin registro Y
-      // - han pasado al menos 48 horas desde el último registro
       const atrasado = inactivo48h && (!tieneRegistros || diasFaltantes.length > 0)
 
       return {
@@ -1232,8 +1283,6 @@ const contratosAtrasados = computed(() => {
     .filter(c => c._atrasado)
 })
 
-
-// Contratos que de verdad nunca han tenido registros
 const contratosNuncaRegistrados = computed(() =>
   contratosUsuarioValidos.value.filter(c => {
     const est = estadoContratos.value[c.id]
@@ -1241,7 +1290,6 @@ const contratosNuncaRegistrados = computed(() =>
   })
 )
 
-// Rellena estadoContratos para todos los contratos del usuario
 async function revisarInactividadContratos() {
   if (!contratosUsuarioValidos.value.length) return
   checkingInactividad.value = true
@@ -1258,7 +1306,6 @@ async function revisarInactividadContratos() {
   }
 }
 
-// Vuelve a calcular y muestra la alerta con pequeña animación
 async function refrescarAlertaAnimada() {
   showAlert.value = false
   await revisarInactividadContratos()
@@ -1268,7 +1315,6 @@ async function refrescarAlertaAnimada() {
   }
 }
 
-// Mantengo esta función igual que la tenías (abre el contrato y hace scroll)
 async function abrirContratoDesdeAlerta(contratoId) {
   if (expandedContrato.value !== contratoId) {
     expandedContrato.value = contratoId
@@ -1277,7 +1323,6 @@ async function abrirContratoDesdeAlerta(contratoId) {
   const el = document.querySelector(`[data-contrato-id="${contratoId}"]`)
   el?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
 }
-
 
 /* ======================= AUTH + CONTRATOS ======================= */
 async function obtenerContratosDelUsuario() {
@@ -1310,12 +1355,6 @@ async function obtenerContratosDelUsuario() {
   }
 
   contratosUsuario.value = results.filter(c => c.activo !== false)
-    setTimeout(async () => {
-    await revisarInactividadContratos()
-    if (contratosAtrasados.value.length > 0) {
-      showAlert.value = true
-    }
-  }, 500) 
 
   await revisarInactividadContratos()
   await nextTick()
@@ -1355,7 +1394,6 @@ async function cargarContratoDetalle(contratoId, { force = false } = {}) {
         )
     }
 
-    // filtrar equipos ocultos
     equipos = equipos.filter(e =>
       e?.oculto !== true &&
       e?.visible !== false &&
@@ -1374,7 +1412,6 @@ async function cargarContratoDetalle(contratoId, { force = false } = {}) {
     const so = await getDocs(qo)
     operByContrato.value[contratoId] = so.docs.map(d => ({ id: d.id, ...d.data() }))
 
-    // Buffers
     inicializarValoresDesde(contratoId)
   } finally {
     loadingContrato.value[contratoId] = false
@@ -1426,12 +1463,14 @@ const historialVisible = ref(false)
 const cargandoHistorial = ref(false)
 const historialItems = ref([])
 const historialMeta = ref({ equipoId: '', jornada: '', dia: '' })
+
 function rangoDia(diaStr) {
   const dd = parseInt(diaStr.slice(0, 2))
   const start = new Date(year.value, mes.value, dd, 0, 0, 0, 0)
   const end   = new Date(year.value, mes.value, dd + 1, 0, 0, 0, 0)
   return { start, end }
 }
+
 async function abrirHistorial(equipoId, jornada, dia) {
   historialMeta.value = { equipoId, jornada, dia }
   historialVisible.value = true
@@ -1471,12 +1510,14 @@ async function abrirHistorial(equipoId, jornada, dia) {
 const comentarioVisible = ref(false)
 const comentarioTexto = ref('')
 const comentarioMeta = ref({ equipoId: '', jornada: '', dia: '' })
+
 function abrirComentario(equipoId, jornada, dia) {
   if (isVisualizador.value) { alert('Tu rol no permite agregar comentarios.'); return }
   comentarioMeta.value = { equipoId, jornada, dia }
   comentarioTexto.value = observacionesCelda.value[`${equipoId}-${jornada}-${dia}`] || ''
   comentarioVisible.value = true
 }
+
 async function guardarComentario() {
   const { equipoId, jornada, dia } = comentarioMeta.value
   const clave = `${equipoId}-${jornada}-${dia}`
@@ -1485,6 +1526,7 @@ async function guardarComentario() {
   await actualizarSoloComentario(equipoId, dia, letra, jornada, comentarioTexto.value)
   comentarioVisible.value = false
 }
+
 async function actualizarSoloComentario(equipoId, dia, letra, jornada, observaciones) {
   const estado = letraToNombre(letra); if (!estado) return
   const dd = parseInt(dia.slice(0, 2))
@@ -1539,6 +1581,7 @@ async function eliminarRegistroOperatividad(clave, dia, jornada) {
     accion: 'eliminacion', timestamp: new Date()
   })
 }
+
 function buscarContratoIdPorEquipo(equipoId) {
   const cId = expandedContrato.value
   if (cId && (equiposByContrato.value[cId] || []).length) {
@@ -1551,6 +1594,7 @@ function buscarContratoIdPorEquipo(equipoId) {
   }
   return null
 }
+
 async function validarYActualizar(equipoId, dia, valor, jornada, observaciones = '') {
   const estado = letraToNombre(valor); if (!estado) return
   const dd = parseInt(dia.slice(0, 2))
@@ -1581,6 +1625,7 @@ async function validarYActualizar(equipoId, dia, valor, jornada, observaciones =
   savedBlinkKey.value = clave
   setTimeout(() => { if (savedBlinkKey.value === clave) savedBlinkKey.value = '' }, 350)
 }
+
 async function actualizarValorCelda(clave, dia, valor, jornada) {
   const upper = (valor || '').toUpperCase()
   const yaTieneValor = getValorCelda(clave) !== ''
@@ -1669,7 +1714,7 @@ async function descargarExcelContrato(contrato) {
     }))
     ws['!merges'] = [...merges, ...mergesDias]
 
-    // estilos (se mantienen)
+    // estilos
     const BORDER_THIN = { style: 'thin', color: { rgb: 'FF999999' } }
     const allBorders  = { top: BORDER_THIN, right: BORDER_THIN, bottom: BORDER_THIN, left: BORDER_THIN }
     const titleStyle = { font: { bold: true, sz: 16, color: { rgb: 'FFFFFFFF' } }, fill: { fgColor: { rgb: 'FF3B3F5C' } }, alignment: { vertical: 'center', horizontal: 'center' }, border: allBorders }
@@ -1747,11 +1792,9 @@ async function descargarExcelContrato(contrato) {
   }
 }
 
-
-
 /* ======================= SELECCIÓN MÚLTIPLE ======================= */
 const selectionMode = ref(false)
-const selectedCells = ref(new Map()) // key -> { equipoId, jornada, dia, contratoId }
+const selectedCells = ref(new Map())
 const applyingBatch = ref(false)
 const batchModal = ref({ visible: false, estado: '', quiereComentario: false, comentario: '' })
 const batchFeedback = ref({ text: '', error: false })
@@ -1761,8 +1804,10 @@ const selectionContratoNombre = computed(() => {
   const c = contratosUsuario.value.find(x => x.id === expandedContrato.value)
   return c?.nombre || '—'
 })
+
 function cellKey(equipoId, jornada, dia){ return `${equipoId}-${jornada}-${dia}` }
 function isSelected(equipoId, jornada, dia){ return selectedCells.value.has(cellKey(equipoId, jornada, dia)) }
+
 function addToSelection(equipoId, jornada, dia, contratoId) {
   if (rolUsuario.value === 'visualizador') return
   const key = cellKey(equipoId, jornada, dia)
@@ -1770,17 +1815,21 @@ function addToSelection(equipoId, jornada, dia, contratoId) {
   if (dragAddMode.value) selectedCells.value.set(key, { equipoId, jornada, dia, contratoId })
   else selectedCells.value.delete(key)
 }
+
 function onCellClickSelect(equipoId, jornada, dia, contratoId){
   const key = cellKey(equipoId, jornada, dia)
   if (selectedCells.value.has(key)) selectedCells.value.delete(key)
   else addToSelection(equipoId, jornada, dia, contratoId)
 }
+
 function clearSelection(){ selectedCells.value.clear() }
+
 function openBatchModal(){
   if (selectedCellsCount.value === 0) return
   batchModal.value = { visible: true, estado: '', quiereComentario: false, comentario: '' }
   batchFeedback.value = { text: '', error: false }
 }
+
 function closeBatchModal(){
   batchModal.value.visible = false
   batchModal.value.estado = ''
@@ -1788,6 +1837,7 @@ function closeBatchModal(){
   batchModal.value.comentario = ''
   batchFeedback.value = { text: '', error: false }
 }
+
 async function applyBatch(){
   const estadoLetra = (batchModal.value.estado || '').toUpperCase()
   if (!['D','F','M'].includes(estadoLetra)) { batchFeedback.value = { text: 'Selecciona un estado (D/F/M).', error: true }; return }
@@ -1800,9 +1850,8 @@ async function applyBatch(){
     for (const [key, meta] of selectedCells.value.entries()){
       if (!puedeEditar(timestampsCelda.value[key])) { skipped++; continue }
       const obs = batchModal.value.quiereComentario ? (batchModal.value.comentario || '') : (observacionesCelda.value[key] || '')
-      const letra = estadoLetra
       const { equipoId, jornada, dia } = meta
-      ops.push(validarYActualizar(equipoId, dia, letra, jornada, obs).then(()=> ok++).catch(()=> skipped++))
+      ops.push(validarYActualizar(equipoId, dia, estadoLetra, jornada, obs).then(()=> ok++).catch(()=> skipped++))
     }
     await Promise.allSettled(ops)
     const msg = `Aplicadas ${ok} celdas` + (skipped ? ` · Omitidas ${skipped}` : '')
@@ -1813,19 +1862,22 @@ async function applyBatch(){
     batchFeedback.value = { text: 'Ocurrió un error aplicando los cambios.', error: true }
   } finally { applyingBatch.value = false }
 }
+
 async function applyBatchQuick(estadoLetra){
   batchModal.value.estado = estadoLetra
   batchModal.value.quiereComentario = false
   batchModal.value.comentario = ''
   await applyBatch()
 }
+
 watch(selectionMode, v => { if (!v) clearSelection() })
 
 /* ===== Arrastre con mouse (“pincel”) ===== */
 const isDraggingSelect = ref(false)
-const dragAddMode = ref(true) // true: agrega, false: quita
+const dragAddMode = ref(true)
+
 function handleCellMouseDown(evt, equipoId, jornada, dia, contratoId){
-  if (!selectionMode.value) return // NO bloquear foco del input
+  if (!selectionMode.value) return
   evt.preventDefault()
   evt.stopPropagation()
   if (rolUsuario.value === 'visualizador') return
@@ -1833,28 +1885,27 @@ function handleCellMouseDown(evt, equipoId, jornada, dia, contratoId){
   dragAddMode.value = !evt.altKey
   addToSelection(equipoId, jornada, dia, contratoId)
 }
+
 function onCellMouseEnter(equipoId, jornada, dia, contratoId){
   if (!isDraggingSelect.value) return
   addToSelection(equipoId, jornada, dia, contratoId)
 }
-function onMouseUpGlobal(){
-  isDraggingSelect.value = false
-}
-function onKeyDownGlobal(e){
-  if (e.key === 'Alt') dragAddMode.value = false
-}
-function onKeyUpGlobal(e){
-  if (e.key === 'Alt') dragAddMode.value = true
-}
+
+function onMouseUpGlobal(){ isDraggingSelect.value = false }
+function onKeyDownGlobal(e){ if (e.key === 'Alt') dragAddMode.value = false }
+function onKeyUpGlobal(e){ if (e.key === 'Alt') dragAddMode.value = true }
+
 onMounted(() => {
   window.addEventListener('mouseup', onMouseUpGlobal)
   window.addEventListener('keydown', onKeyDownGlobal)
   window.addEventListener('keyup', onKeyUpGlobal)
 })
+
 onUnmounted(() => {
   window.removeEventListener('mouseup', onMouseUpGlobal)
   window.removeEventListener('keydown', onKeyDownGlobal)
   window.removeEventListener('keyup', onKeyUpGlobal)
+  document.body.style.overflow = ''
 })
 
 /* === Clic tradicional en la celda === */
@@ -1867,7 +1918,6 @@ function onCellClick(equipoId, jornada, dia, contratoId, categoria, rowIndex, di
     abrirHistorial(equipoId, jornada, dia)
     return
   }
-  // Foco al input (comportamiento tradicional)
   focusCell(contratoId, categoria, rowIndex, diaIndex, jornada)
 }
 
@@ -1959,18 +2009,97 @@ onUnmounted(() => {
   :root, :host { --col-interno: 100px; --col-ppu: 88px; }
 }
 
-/* ===== PDF overlay ===== */
+/* ===== Modal docs “casi pantalla completa” ===== */
+.docs-modal { z-index: 1800; }
+.docs-modal .modal-dialog{
+  max-width: min(1100px, 98vw);
+  width: 98vw;
+  margin: 0.75rem auto;
+}
+.docs-modal .modal-content{
+  height: min(92vh, 980px);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.docs-modal .modal-body{
+  overflow: auto;
+}
+
+/* ===== PDF overlay (más arriba y full) ===== */
 .pdf-overlay{
-  position: fixed; inset: 0; background: rgba(0,0,0,.55);
-  z-index: 2100; display: flex; flex-direction: column;
+  position: fixed; inset: 0; background: rgba(0,0,0,.60);
+  z-index: 5000; display: flex; flex-direction: column;
   padding-bottom: env(safe-area-inset-bottom);
 }
 .pdf-toolbar{
   display: flex; align-items: center; gap: 8px;
-  background: rgba(0,0,0,.65); color: #fff; padding: 8px 10px;
+  background: rgba(0,0,0,.75); color: #fff; padding: 10px 12px;
 }
-.pdf-stage{ flex: 1; background: #222; }
-.pdf-stage iframe{ width: 100%; height: 100%; background: #fff; }
+.pdf-stage{
+  flex: 1;
+  min-height: 0;
+  background: #111;
+}
+.pdf-stage iframe{
+  width: 100%;
+  height: calc(100vh - 52px);
+  background: #fff;
+}
+
+/* ===== Preview overlay (imagen) full ===== */
+.preview-overlay{
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.65);
+  z-index: 5001;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.preview-toolbar{
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(0,0,0,.75);
+  color: #fff;
+  padding: 10px 12px;
+}
+.preview-stage{
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  padding: 10px;
+}
+.preview-stage img{
+  max-width: 96vw;
+  max-height: calc(100vh - 70px);
+  transform-origin: center;
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.35);
+}
+
+/* Grid miniaturas */
+.thumb-grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 10px;
+}
+.thumb-btn{
+  border: 1px solid rgba(0,0,0,.12);
+  border-radius: 12px;
+  background: #fff;
+  padding: 6px;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.thumb-btn:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(0,0,0,.12);
+}
+.thumb-btn img{
+  width: 100%;
+  height: 78px;
+  object-fit: cover;
+  border-radius: 8px;
+}
 
 /* Nueva columna sticky para DOCS */
 .col-docs { width: 56px; min-width: 56px; text-align: center; }
@@ -2122,6 +2251,7 @@ td.position-relative .btn-xs{
 /* Card */
 .card { border-radius: 16px; background-color: #fff; border: 1px solid #dee2e6; }
 </style>
+
 
 <script>
 export default { name: 'HomeView' }
