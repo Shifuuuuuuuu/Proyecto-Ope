@@ -211,7 +211,14 @@
                       >
                         <i :class="expandedContrato === contrato.id ? 'bi bi-eye-slash-fill' : 'bi bi-eye-fill'"></i>
                       </button>
-
+                      <button
+                        class="btn btn-outline-warning"
+                        @click="$router.push({ name: 'EditarOperatividadHistorica', query: { contratoId: contrato.id } })"
+                        :disabled="loadingContrato[contrato.id]"
+                        title="Solicitar edición de meses anteriores"
+                      >
+                        <i class="bi bi-calendar-range"></i>
+                      </button>
                       <button
                         class="btn btn-outline-primary"
                         @click="toggleMes(contrato.id)"

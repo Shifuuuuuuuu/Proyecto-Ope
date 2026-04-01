@@ -204,9 +204,26 @@ const menuItems = computed(() => {
       help: true,
       bullets: ["Búsqueda global", "Filtros", "Acceso rápido"],
     },
+    {
+      key: "docs-equipos",
+      icon: "bi bi-folder2-open",
+      iconClass: "is-blue",
+      title: "Control de documentos de equipos",
+      desc: "Administra carpetas y documentos de equipos por contrato, patente y categoría.",
+      to: { name: "ControlDocumentosEquipos" },
+      category: "Documentos",
+      badge: "",
+      restricted: false,
+      help: true,
+      bullets: [
+        "Carpetas por contrato",
+        "Subida de documentos a Storage",
+        "Búsqueda por patente y categoría",
+        "Filtro por fechas"
+      ],
+    }
   ];
 
-  // OT solo roles permitidos
   if (canSeeControlOT.value) {
     base.splice(3, 0, {
       key: "ot",

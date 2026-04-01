@@ -19,7 +19,8 @@ const VerificarCertificado = () => import('@/views/VerificarCertificado.vue')
 const MenuPrincipal = () => import('@/views/MenuPrincipal.vue')
 const RegistroArriendos = () => import('@/views/RegistroArriendos.vue')
 const ReportesFallas = () => import('@/views/ReportesFallas.vue')
-
+const ControlDocumentosEquipos = () => import('@/views/ControlDocumentosEquipos.vue')
+const ActividadContratosView = () => import('../views/ActividadContratosView.vue')
 const ALLOWED_INGRESO_EMAILS = [
   'sectecentral@xtrememining.cl',
   'pbustos@xtrememining.cl',
@@ -31,33 +32,24 @@ const ALLOWED_INGRESO_EMAILS = [
 const routes = [
   { path: '/', name: 'Home', component: Home },
 
-  // Menú principal
   { path: '/menu', name: 'MenuPrincipal', component: MenuPrincipal, meta: { requiresAuth: true } },
 
-  // Auth
   { path: '/login', name: 'Login', component: Login },
   { path: '/register', name: 'Register', component: Register, meta: { requiresAuth: true, requiresAdmin: true } },
 
-  // Perfil/Admin
   { path: '/perfil', name: 'PerfilUsuario', component: PerfilUsuario, meta: { requiresAuth: true } },
   { path: '/admin', name: 'AdminPanel', component: AdminPanel, meta: { requiresAuth: true, requiresAdmin: true } },
 
-  // Operatividad / Historial
   { path: '/historial-operatividad', name: 'HistorialOperatividad', component: HistorialOperatividad, meta: { requiresAuth: true } },
 
-  // Vista operador
   { path: '/mis-equipos', name: 'MisEquipos', component: EquiposOperadorView, meta: { requiresAuth: true, onlyRoles: ['operador', 'admin'] } },
 
-  // Ingreso de contratos/equipos
   { path: '/ingreso-contratos', name: 'IngresoContratos', component: IngresoEquiposView, meta: { requiresAuth: true }, alias: ['/ingreso-equipos'] },
 
-  // Historial de ingreso
   { path: '/historial-ingreso', name: 'HistorialIngresoEquipos', component: () => import('../views/HistorialIngresoEquiposView.vue') },
 
-  // Estadísticas por contrato
   { path: '/estadisticas/:contratoId', name: 'ContratoStats', component: () => import('../views/ContratoStats.vue'), props: true },
 
-  // OTs
   {
     path: '/ots/:contratoId?',
     name: 'OTsPage',
@@ -70,8 +62,6 @@ const routes = [
     component: () => import('@/views/AdminGestorIngresosOTs.vue'),
     meta: { requiresAuth: true, requiresAdmin: true }
   },
-
-  // Registro de Arriendos
   {
     path: '/arriendos',
     name: 'RegistroArriendos',
@@ -79,7 +69,6 @@ const routes = [
     meta: { requiresAuth: true }
   },
 
-  // Reportes de Fallas
   {
     path: '/fallas',
     name: 'ReportesFallas',
@@ -121,6 +110,30 @@ const routes = [
     component: () => import('../views/CambioAceiteMotor.vue'),
     meta: { requiresAuth: true, onlyRoles: ['admin', 'visualizador'] }
   },
+  {
+    path: '/control-documentos-equipos',
+    name: 'ControlDocumentosEquipos',
+    component: ControlDocumentosEquipos,
+    meta: { requiresAuth: true, onlyRoles: ['admin', 'visualizador', 'operador'] }
+  },
+  {
+  path: '/actividad-contratos',
+  name: 'ActividadContratos',
+  component: ActividadContratosView,
+  meta: { requiresAuth: true }
+  },
+  {
+    path: '/editar-operatividad-historica',
+    name: 'EditarOperatividadHistorica',
+    component: () => import('../views/EditarOperatividadHistoricaView.vue'),
+    meta: { requiresAuth: true, onlyRoles: ['operador', 'admin'] }
+  },
+  {
+    path: '/aprobar-solicitudes-operatividad',
+    name: 'AprobarSolicitudesOperatividad',
+    component: () => import('../views/AprobarSolicitudesOperatividadView.vue'),
+    meta: { requiresAuth: true, onlyRoles: ['admin'] }
+  },
 {
   path: "/buscar-equipos",
   name: "BuscarEquipos",
@@ -142,7 +155,6 @@ async function getUserRole(user) {
   return _cachedRole
 }
 
-// Visualizador: páginas permitidas (agrego nuevas vistas)
 const ALLOWED_VISUALIZADOR = new Set([
   'Home',
   'HistorialOperatividad',
@@ -153,7 +165,8 @@ const ALLOWED_VISUALIZADOR = new Set([
   'MenuPrincipal',
   'RegistroArriendos',
   'ReportesFallas',
-  'GestorOT' // <-- agrega GestorOT para que su propio filtro no lo bloquee
+  'GestorOT',
+  'ControlDocumentosEquipos'
 ])
 
 router.beforeEach(async (to, from, next) => {

@@ -74,6 +74,16 @@
                   <i class="bi bi-file-earmark-arrow-up me-2"></i> Cargar Certificado
                 </router-link>
               </li>
+              <li>
+                <router-link class="dropdown-item" to="/actividad-contratos">
+                  <i class="bi bi-menu-button me-2"></i> Actividad de Contratos
+                </router-link>
+              </li>
+              <li>
+                <router-link class="dropdown-item" to="/aprobar-solicitudes-operatividad">
+                  <i class="bi bi-card-checklist me-2"></i> Solicitudes de Cambios
+                </router-link>
+              </li>
             </ul>
           </li>
         </ul>
