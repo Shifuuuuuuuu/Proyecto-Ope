@@ -263,6 +263,29 @@
                   v-if="expandedContrato === contrato.id && selectedCellsCount > 0"
                   class="alert alert-dark d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2 py-2 px-3"
                 >
+                <transition name="batch-progress-pop">
+                  <div
+                    v-if="expandedContrato === contrato.id && batchProgress.visible"
+                    class="batch-progress-card mb-3"
+                  >
+                    <div class="d-flex justify-content-between align-items-center gap-3 mb-2">
+                      <div class="fw-semibold">
+                        {{ batchProgress.action }} celdas...
+                      </div>
+                      <div class="small text-muted">
+                        {{ batchProgress.current }} / {{ batchProgress.total }}
+                      </div>
+                    </div>
+
+                    <div class="progress batch-progress-bar">
+                      <div
+                        class="progress-bar progress-bar-striped progress-bar-animated"
+                        role="progressbar"
+                        :style="{ width: `${batchProgress.total ? (batchProgress.current / batchProgress.total) * 100 : 0}%` }"
+                      ></div>
+                    </div>
+                  </div>
+                </transition>
                   <div class="d-flex align-items-center gap-3">
                     <strong class="me-1">Seleccionadas:</strong>
                     <span class="badge text-bg-secondary">{{ selectedCellsCount }}</span>
@@ -274,6 +297,9 @@
                       <button class="btn btn-sm btn-outline-success" @click="applyBatchQuick('D')">Marcar D</button>
                       <button class="btn btn-sm btn-outline-danger"  @click="applyBatchQuick('F')">Marcar F</button>
                       <button class="btn btn-sm btn-outline-warning" @click="applyBatchQuick('M')">Marcar M</button>
+                      <button class="btn btn-sm btn-outline-dark" @click="openBatchClearModal">
+                        Limpiar marcado
+                      </button>
                     </div>
 
                     <button class="btn btn-sm btn-primary" @click="openBatchModal">
@@ -361,15 +387,22 @@
                                       <input
                                         type="text"
                                         class="form-control form-control-sm text-center cell-input"
-                                        :class="[colorCelda(getValorCelda(`${equipo.id}-A-${dia}`)), {'cell-saved': savedBlinkKey === `${equipo.id}-A-${dia}`} ]"
+                                        :class="[
+                                          colorCelda(getValorCelda(`${equipo.id}-A-${dia}`)),
+                                          {
+                                            'cell-saved': savedBlinkKey === `${equipo.id}-A-${dia}`,
+                                            'cell-processing': isProcessingCell(`${equipo.id}-A-${dia}`),
+                                            'cell-clearing': isClearingCell(`${equipo.id}-A-${dia}`)
+                                          }
+                                        ]"
                                         :value="getValorCelda(`${equipo.id}-A-${dia}`)"
                                         placeholder="D/F/M"
                                         maxlength="1"
-                                        @input="onCellInput($event, `${equipo.id}-A-${dia}`, dia, 'A', contrato.id, categoria, rowIndex, diaIndex, grupo.length, diasPorContrato(contrato.id).length)"
-                                        @change="actualizarValorCelda(`${equipo.id}-A-${dia}`, dia, $event.target.value, 'A')"
-                                        @keydown="onCellKeydown($event, contrato.id, categoria, rowIndex, diaIndex, 'A', grupo.length, diasPorContrato(contrato.id).length)"
+                                        @keydown="onCellKeydown($event, contrato.id, categoria, rowIndex, diaIndex, 'A', grupo.length, diasPorContrato(contrato.id).length, `${equipo.id}-A-${dia}`, dia)"
+                                        @click.stop
+                                        @mousedown.stop
                                         :ref="el => setCellRef(contrato.id, categoria, rowIndex, diaIndex, 'A', el)"
-                                        :readonly="rolUsuario === 'visualizador' || !puedeEditar(timestampsCelda[`${equipo.id}-A-${dia}`])"
+                                        :readonly="rolUsuario === 'visualizador'"
                                         :title="generarTooltip(`${equipo.id}-A-${dia}`)"
                                       />
                                       <div class="celda-actions" v-if="!modoAcciones && !isVisualizador && !selectionMode">
@@ -378,6 +411,15 @@
                                           title="Agregar/Editar comentario"
                                           @click.stop="abrirComentario(`${equipo.id}`, 'A', dia)"
                                         >📝</button>
+
+                                        <button
+                                          v-if="getValorCelda(`${equipo.id}-A-${dia}`)"
+                                          class="btn btn-danger btn-xs"
+                                          title="Limpiar marcado"
+                                          @click.stop="abrirModalLimpiar(`${equipo.id}`, 'A', dia)"
+                                        >
+                                          <i class="bi bi-eraser-fill"></i>
+                                        </button>
                                       </div>
                                     </td>
 
@@ -402,15 +444,22 @@
                                       <input
                                         type="text"
                                         class="form-control form-control-sm text-center cell-input"
-                                        :class="[colorCelda(getValorCelda(`${equipo.id}-B-${dia}`)), {'cell-saved': savedBlinkKey === `${equipo.id}-B-${dia}`} ]"
+                                        :class="[
+                                          colorCelda(getValorCelda(`${equipo.id}-B-${dia}`)),
+                                          {
+                                            'cell-saved': savedBlinkKey === `${equipo.id}-B-${dia}`,
+                                            'cell-processing': isProcessingCell(`${equipo.id}-B-${dia}`),
+                                            'cell-clearing': isClearingCell(`${equipo.id}-B-${dia}`)
+                                          }
+                                        ]"
                                         :value="getValorCelda(`${equipo.id}-B-${dia}`)"
                                         placeholder="D/F/M"
                                         maxlength="1"
-                                        @input="onCellInput($event, `${equipo.id}-B-${dia}`, dia, 'B', contrato.id, categoria, rowIndex, diaIndex, grupo.length, diasPorContrato(contrato.id).length)"
-                                        @change="actualizarValorCelda(`${equipo.id}-B-${dia}`, dia, $event.target.value, 'B')"
-                                        @keydown="onCellKeydown($event, contrato.id, categoria, rowIndex, diaIndex, 'B', grupo.length, diasPorContrato(contrato.id).length)"
+                                        @keydown="onCellKeydown($event, contrato.id, categoria, rowIndex, diaIndex, 'B', grupo.length, diasPorContrato(contrato.id).length, `${equipo.id}-B-${dia}`, dia)"
+                                        @click.stop
+                                        @mousedown.stop
                                         :ref="el => setCellRef(contrato.id, categoria, rowIndex, diaIndex, 'B', el)"
-                                        :readonly="rolUsuario === 'visualizador' || !puedeEditar(timestampsCelda[`${equipo.id}-B-${dia}`])"
+                                        :readonly="rolUsuario === 'visualizador'"
                                         :title="generarTooltip(`${equipo.id}-B-${dia}`)"
                                       />
                                       <div class="celda-actions" v-if="!modoAcciones && !isVisualizador && !selectionMode">
@@ -419,6 +468,15 @@
                                           title="Agregar/Editar comentario"
                                           @click.stop="abrirComentario(`${equipo.id}`, 'B', dia)"
                                         >📝</button>
+
+                                        <button
+                                          v-if="getValorCelda(`${equipo.id}-B-${dia}`)"
+                                          class="btn btn-danger btn-xs"
+                                          title="Limpiar marcado"
+                                          @click.stop="abrirModalLimpiar(`${equipo.id}`, 'B', dia)"
+                                        >
+                                          <i class="bi bi-eraser-fill"></i>
+                                        </button>
                                       </div>
                                     </td>
                                   </template>
@@ -503,7 +561,94 @@
               </div>
             </div>
           </div>
+          <!-- Modal Limpiar marcado individual -->
+          <div
+            class="modal fade show"
+            tabindex="-1"
+            style="display:block;"
+            v-if="limpiarVisible"
+            @click.self="cerrarModalLimpiar"
+          >
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title">
+                    Limpiar marcado — Equipo: {{ limpiarMeta.equipoId }} · Turno {{ limpiarMeta.jornada }} · Día {{ limpiarMeta.dia }}
+                  </h5>
+                  <button type="button" class="btn-close" @click="cerrarModalLimpiar"></button>
+                </div>
 
+                <div class="modal-body">
+                  <div class="alert alert-warning">
+                    Esta acción eliminará el estado actual de la celda y dejará registro en historial.
+                  </div>
+
+                  <label class="form-label fw-semibold">Comentario</label>
+                  <textarea
+                    class="form-control"
+                    rows="4"
+                    v-model="limpiarComentario"
+                    placeholder="Ej: Se limpió porque fue un error de carga"
+                  ></textarea>
+                  <small class="text-muted d-block mt-2">
+                    Si no escribes nada, se guardará un comentario automático.
+                  </small>
+                </div>
+
+                <div class="modal-footer">
+                  <button class="btn btn-outline-secondary" @click="cerrarModalLimpiar">Cancelar</button>
+                  <button class="btn btn-danger" @click="confirmarLimpiarCelda">
+                    <i class="bi bi-eraser-fill me-1"></i>
+                    Limpiar marcado
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Modal Limpiar marcado múltiple -->
+          <div
+            class="modal fade show"
+            tabindex="-1"
+            style="display:block;"
+            v-if="batchClearVisible"
+            @click.self="closeBatchClearModal"
+          >
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title">
+                    Limpiar selección ({{ selectedCellsCount }})
+                  </h5>
+                  <button type="button" class="btn-close" @click="closeBatchClearModal"></button>
+                </div>
+
+                <div class="modal-body">
+                  <div class="alert alert-warning">
+                    Se eliminarán los estados de las celdas seleccionadas y quedará registro en historial.
+                  </div>
+
+                  <label class="form-label fw-semibold">Comentario</label>
+                  <textarea
+                    class="form-control"
+                    rows="4"
+                    v-model="batchClearComentario"
+                    placeholder="Ej: Limpieza masiva por error en el marcado"
+                  ></textarea>
+                  <small class="text-muted d-block mt-2">
+                    Si no escribes nada, se guardará un comentario automático.
+                  </small>
+                </div>
+
+                <div class="modal-footer">
+                  <button class="btn btn-outline-secondary" @click="closeBatchClearModal">Cancelar</button>
+                  <button class="btn btn-danger" @click="confirmBatchClear">
+                    <i class="bi bi-eraser-fill me-1"></i>
+                    Limpiar marcado
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
           <!-- MODAL: Gestor de Documentos por Equipo (más grande / casi pantalla completa) -->
           <div
             class="modal fade show docs-modal"
@@ -676,7 +821,6 @@
               </div>
             </div>
           </div>
-
           <!-- Modal aplicación en lote -->
           <div class="modal fade show" tabindex="-1" style="display:block;" v-if="batchModal.visible" @click.self="closeBatchModal">
             <div class="modal-dialog">
@@ -697,7 +841,6 @@
                       <button type="button" class="btn" :class="{'btn-warning': batchModal.estado==='M', 'btn-outline-warning': batchModal.estado!=='M'}" @click="batchModal.estado='M'">M</button>
                     </div>
                   </div>
-
                   <div class="mb-2">
                     <label class="form-label fw-semibold">¿Deseas agregar comentario?</label>
                     <div class="d-flex gap-2">
@@ -718,7 +861,7 @@
 
                 <div class="modal-footer">
                   <button class="btn btn-outline-secondary" @click="closeBatchModal">Cancelar</button>
-                  <button class="btn btn-primary" :disabled="!batchModal.estado || applyingBatch" @click="applyBatch">
+                  <button class="btn btn-primary" :disabled="applyingBatch" @click="applyBatch">
                     <span v-if="!applyingBatch">Aplicar</span>
                     <span v-else class="d-inline-flex align-items-center gap-2">
                       <span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Aplicando…
@@ -1018,6 +1161,15 @@ const observacionesCelda = ref({})
 const usuariosCelda = ref({})
 const timestampsCelda = ref({})
 const savedBlinkKey = ref('')
+const processingCells = ref(new Set())
+const clearingCells = ref(new Set())
+const batchProgress = ref({
+  visible: false,
+  total: 0,
+  current: 0,
+  action: ''
+})
+
 
 /* ====== Letras y mapeos ====== */
 const ALLOWED = ['D','F','M']
@@ -1064,33 +1216,95 @@ function diasPorContrato(contratoId) { return isWeekdaysOnlyContratoId(contratoI
 function diasNumericosPorContrato(contratoId) { return diasPorContrato(contratoId).map(s => s.slice(0,2)) }
 
 /* ====== Entrada/navegación individual ====== */
-function onCellKeydown(e, contratoId, categoria, rowIdx, diaIdx, turno, totalRows, totalDias) {
-  if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); focusCell(contratoId, categoria, rowIdx, diaIdx, turno); return }
-  const k = e.key
-  if (!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(k)) return
-  e.preventDefault()
+async function onCellKeydown(
+  e,
+  contratoId,
+  categoria,
+  rowIdx,
+  diaIdx,
+  turno,
+  totalRows,
+  totalDias,
+  clave,
+  dia
+) {
+  const kRaw = String(e.key || '')
+  const k = kRaw.toUpperCase()
+
   const perDay = 2
   let col = diaIdx * perDay + (turno === 'A' ? 0 : 1)
   const maxCol = totalDias * perDay - 1
   let r = rowIdx
-  if (k === 'ArrowRight' && col < maxCol) col++
-  if (k === 'ArrowLeft'  && col > 0)     col--
-  if (k === 'ArrowDown'  && r < totalRows - 1) r++
-  if (k === 'ArrowUp'    && r > 0)            r--
-  const newDia = Math.floor(col / perDay)
-  const newTurno = (col % 2 === 0) ? 'A' : 'B'
-  focusCell(contratoId, categoria, r, newDia, newTurno)
+
+  if (k === 'ARROWRIGHT' || k === 'ARROWLEFT' || k === 'ARROWDOWN' || k === 'ARROWUP') {
+    e.preventDefault()
+
+    if (k === 'ARROWRIGHT' && col < maxCol) col++
+    if (k === 'ARROWLEFT' && col > 0) col--
+    if (k === 'ARROWDOWN' && r < totalRows - 1) r++
+    if (k === 'ARROWUP' && r > 0) r--
+
+    const newDia = Math.floor(col / perDay)
+    const newTurno = (col % 2 === 0) ? 'A' : 'B'
+    focusCell(contratoId, categoria, r, newDia, newTurno)
+    return
+  }
+
+  if (k === 'ENTER') {
+    e.preventDefault()
+
+    if (col < maxCol) col++
+    else if (r < totalRows - 1) {
+      r++
+      col = 0
+    }
+
+    const newDia = Math.floor(col / perDay)
+    const newTurno = (col % 2 === 0) ? 'A' : 'B'
+    focusCell(contratoId, categoria, r, newDia, newTurno)
+    return
+  }
+
+  if (k === 'TAB') return
+
+  if (k === 'BACKSPACE' || k === 'DELETE') {
+    e.preventDefault()
+
+    const [equipoId] = String(clave || '').split('-')
+    if (!equipoId) return
+
+    await limpiarMarcadoCelda(equipoId, dia, turno, 'Limpieza manual del registro.')
+    return
+  }
+
+  if (ALLOWED.includes(k)) {
+    e.preventDefault()
+
+    const [equipoId] = String(clave || '').split('-')
+    if (!equipoId) return
+
+    await guardarEstadoSimple(equipoId, dia, turno, k)
+
+    if (col < maxCol) col++
+    else if (r < totalRows - 1) {
+      r++
+      col = 0
+    }
+
+    const newDia = Math.floor(col / perDay)
+    const newTurno = (col % 2 === 0) ? 'A' : 'B'
+
+    nextTick(() => {
+      focusCell(contratoId, categoria, r, newDia, newTurno)
+    })
+    return
+  }
+
+  if (kRaw.length === 1) {
+    e.preventDefault()
+  }
 }
 
-function onCellInput(e, clave, dia, jornada, contratoId, categoria, rowIdx, diaIdx, totalRows, totalDias) {
-  let val = (e.target.value || '').toUpperCase().slice(0,1)
-  e.target.value = val
-  if (!ALLOWED.includes(val)) { inputValues.value[clave] = ''; return }
-  inputValues.value[clave] = val
-  const equipoId = clave.split('-')[0]
-  const obsActual = observacionesCelda.value[clave] || ''
-  validarYActualizar(equipoId, dia, val, jornada, obsActual)
-}
 
 /* ======================= UTILIDADES ======================= */
 const contratosUsuarioValidos = computed(() =>
@@ -1129,16 +1343,7 @@ const colorCelda = (valor) => {
   return ''
 }
 
-const puedeEditar = (docTimestamp) => {
-  if (!docTimestamp) return true
-  const tiempoRegistro = docTimestamp.toDate ? docTimestamp.toDate() : new Date(docTimestamp)
-  const ahora = new Date()
-  const esHoy =
-    tiempoRegistro.getFullYear() === ahora.getFullYear() &&
-    tiempoRegistro.getMonth() === ahora.getMonth() &&
-    tiempoRegistro.getDate() === ahora.getDate()
-  const diferenciaHoras = (ahora.getTime() - tiempoRegistro.getTime()) / (1000 * 60 * 60)
-  if (esHoy) return diferenciaHoras <= 4
+const puedeEditar = () => {
   return true
 }
 
@@ -1147,12 +1352,22 @@ const getValorCelda = (clave) => inputValues.value[clave] || ''
 const generarTooltip = (clave) => {
   const estadoLetra = getValorCelda(clave)
   if (!estadoLetra) return ''
-  const mapa = { D:'Disponible', F:'Fuera de servicio', M:'Mantención', T:'Tránsito' }
+
+  const mapa = {
+    D: 'Disponible',
+    F: 'Fuera de servicio',
+    M: 'Mantención',
+  }
+
   const estadoTexto = mapa[estadoLetra] || estadoLetra
   const obs = observacionesCelda.value[clave] || 'Sin observación'
   const usuario = usuariosCelda.value[clave] || 'Desconocido'
   const cuando = formatearFechaHora(timestampsCelda.value[clave])
-  return `Estado: ${estadoTexto}\nObs: ${obs}\nUsuario: ${usuario}\nÚlt. edición: ${cuando}`
+
+  return `Estado: ${estadoTexto}
+Obs: ${obs}
+Usuario: ${usuario}
+Últ. edición: ${cuando}`
 }
 
 /* ======================= ALERTA: CONTRATOS NO AL DÍA ======================= */
@@ -1424,16 +1639,19 @@ async function cargarContratoDetalle(contratoId, { force = false } = {}) {
     loadingContrato.value[contratoId] = false
   }
 }
-
 function inicializarValoresDesde(contratoId) {
   const oper = operByContrato.value[contratoId] || []
+
   for (const item of oper) {
     const date = item.fecha?.toDate ? item.fecha.toDate() : new Date(item.fecha)
     const dia = String(date.getDate()).padStart(2, '0')
     const mesNombre = date.toLocaleString('default', { month: 'short' }).toLowerCase()
     const clave = `${item.equipoId}-${item.jornada}-${dia}-${mesNombre}`
+
     inputValues.value[clave] = nombreToLetra(item.estado)
     observacionesCelda.value[clave] = item.observaciones || ''
+
+
     const nombre = (item.nombre_completo || '').trim()
     const correo = (item.registradoPor || '').trim()
     usuariosCelda.value[clave] = nombre ? `${nombre}${correo ? ` (${correo})` : ''}` : (correo || 'Desconocido')
@@ -1465,6 +1683,115 @@ async function toggleMes(contratoIdActual = null) {
   }
 }
 
+
+function buildClave(equipoId, jornada, dia) {
+  return `${equipoId}-${jornada}-${dia}`
+}
+function markProcessingCell(clave) {
+  const next = new Set(processingCells.value)
+  next.add(clave)
+  processingCells.value = next
+}
+
+function unmarkProcessingCell(clave) {
+  const next = new Set(processingCells.value)
+  next.delete(clave)
+  processingCells.value = next
+}
+
+function markClearingCell(clave) {
+  const next = new Set(clearingCells.value)
+  next.add(clave)
+  clearingCells.value = next
+}
+
+function unmarkClearingCell(clave) {
+  const next = new Set(clearingCells.value)
+  next.delete(clave)
+  clearingCells.value = next
+}
+
+function isProcessingCell(clave) {
+  return processingCells.value.has(clave)
+}
+
+function isClearingCell(clave) {
+  return clearingCells.value.has(clave)
+}
+
+function wait(ms = 60) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+
+
+
+
+
+
+
+async function limpiarMarcadoCelda(equipoId, dia, jornada, comentarioExtra = '') {
+  if (!equipoId || !dia || !jornada) {
+    console.warn('limpiarMarcadoCelda recibió datos incompletos:', { equipoId, dia, jornada })
+    return
+  }
+
+  const dd = parseInt(String(dia).slice(0, 2))
+  const fecha = new Date(year.value, mes.value, dd)
+  const contratoId = buscarContratoIdPorEquipo(equipoId) || ''
+  const clave = buildClave(equipoId, jornada, dia)
+
+  markClearingCell(clave)
+
+  try {
+    const auth = getAuth()
+    const currentUser = auth.currentUser
+
+    let nombre_completo = ''
+    let registradoPor = ''
+
+    if (currentUser) {
+      registradoPor = currentUser.email || ''
+      const userDocRef = doc(db, 'usuarios', currentUser.uid)
+      const userSnap = await getDoc(userDocRef)
+      if (userSnap.exists()) {
+        nombre_completo = userSnap.data().nombre_completo || ''
+      }
+    }
+
+    const docId = `${equipoId}_${jornada}_${dia}`
+    const comentarioFinal = String(comentarioExtra || '').trim() || 'Registro eliminado por error de carga.'
+
+    await deleteDoc(doc(db, 'operatividad', docId))
+
+    inputValues.value[clave] = ''
+    observacionesCelda.value[clave] = ''
+    usuariosCelda.value[clave] = nombre_completo
+      ? `${nombre_completo}${registradoPor ? ` (${registradoPor})` : ''}`
+      : (registradoPor || 'Desconocido')
+    timestampsCelda.value[clave] = new Date()
+
+    await setDoc(doc(db, 'historial_operatividad', `${docId}_limpieza_${Date.now()}`), {
+      equipoId,
+      contratoId,
+      estado: 'LIMPIADO',
+      fecha,
+      jornada,
+      nombre_completo,
+      observaciones: comentarioFinal,
+      registradoPor,
+      accion: 'limpieza',
+      timestamp: new Date(),
+    })
+
+    savedBlinkKey.value = clave
+    setTimeout(() => {
+      if (savedBlinkKey.value === clave) savedBlinkKey.value = ''
+    }, 550)
+  } finally {
+    setTimeout(() => unmarkClearingCell(clave), 180)
+  }
+}
 /* ======================= HISTORIAL FOCALIZADO ======================= */
 const historialVisible = ref(false)
 const cargandoHistorial = ref(false)
@@ -1528,67 +1855,52 @@ function abrirComentario(equipoId, jornada, dia) {
 async function guardarComentario() {
   const { equipoId, jornada, dia } = comentarioMeta.value
   const clave = `${equipoId}-${jornada}-${dia}`
-  const letra = getValorCelda(clave)
-  if (!letra) { alert('Primero ingresa D/F/M en la celda antes de comentar.'); return }
-  await actualizarSoloComentario(equipoId, dia, letra, jornada, comentarioTexto.value)
+  const estadoActual = getValorCelda(clave)
+
+  if (!estadoActual) {
+    alert('Primero debes marcar la celda con D, F o M.')
+    return
+  }
+
+  await guardarEstadoSimple(
+    equipoId,
+    dia,
+    jornada,
+    estadoActual,
+    String(comentarioTexto.value || '').trim()
+  )
+
   comentarioVisible.value = false
 }
 
-async function actualizarSoloComentario(equipoId, dia, letra, jornada, observaciones) {
-  const estado = letraToNombre(letra); if (!estado) return
-  const dd = parseInt(dia.slice(0, 2))
-  const fecha = new Date(year.value, mes.value, dd)
-  const clave = `${equipoId}-${jornada}-${dia}`
-  const auth = getAuth()
-  const currentUser = auth.currentUser
-  let nombre_completo = ''; let registradoPor = ''
-  if (currentUser) {
-    registradoPor = currentUser.email || ''
-    const userDocRef = doc(db, 'usuarios', currentUser.uid)
-    const userSnap = await getDoc(userDocRef)
-    if (userSnap.exists()) nombre_completo = userSnap.data().nombre_completo || ''
+function abrirModalLimpiar(equipoId, jornada, dia) {
+  if (rolUsuario.value === 'visualizador') {
+    alert('No tienes permisos para editar.')
+    return
   }
-  const docId = `${equipoId}_${jornada}_${dia}`
-  const contratoId = buscarContratoIdPorEquipo(equipoId) || ''
-  await setDoc(doc(db, 'historial_operatividad', `${docId}_${Date.now()}`), {
-    equipoId, contratoId, estado, fecha, jornada, nombre_completo, observaciones, registradoPor,
-    accion: 'comentario', timestamp: new Date()
-  })
-  await setDoc(doc(db, 'operatividad', docId), {
-    equipoId, contratoId, estado, fecha, jornada, nombre_completo, observaciones, registradoPor,
-    timestamp: new Date()
-  })
-  observacionesCelda.value[clave] = observaciones || ''
-  timestampsCelda.value[clave] = new Date()
-  savedBlinkKey.value = clave
-  setTimeout(() => { if (savedBlinkKey.value === clave) savedBlinkKey.value = '' }, 350)
+
+  limpiarMeta.value = { equipoId, jornada, dia }
+  limpiarComentario.value = ''
+  limpiarVisible.value = true
 }
 
-/* ======================= ACTUALIZAR / ELIMINAR CELDA ======================= */
-async function eliminarRegistroOperatividad(clave, dia, jornada) {
-  const equipoId = clave.split('-')[0]
-  const docId = `${equipoId}_${jornada}_${dia}`
-  const auth = getAuth()
-  const currentUser = auth.currentUser
-  let nombre_completo = ''; let registradoPor = ''
-  if (currentUser) {
-    registradoPor = currentUser.email || ''
-    const userDocRef = doc(db, 'usuarios', currentUser.uid)
-    const userSnap = await getDoc(userDocRef)
-    if (userSnap.exists()) nombre_completo = userSnap.data().nombre_completo || ''
+function cerrarModalLimpiar() {
+  limpiarVisible.value = false
+  limpiarMeta.value = {
+    equipoId: '',
+    jornada: '',
+    dia: ''
   }
-  const dd = parseInt(dia.slice(0, 2))
-  const fecha = new Date(year.value, mes.value, dd)
-  const contratoId = buscarContratoIdPorEquipo(equipoId) || ''
-  await deleteDoc(doc(db, 'operatividad', docId))
-  timestampsCelda.value[clave] = null
-  observacionesCelda.value[clave] = ''
-  await setDoc(doc(db, 'historial_operatividad', `${docId}_${Date.now()}`), {
-    equipoId, contratoId, estado: 'ELIMINADO', fecha, jornada, nombre_completo, observaciones: '', registradoPor,
-    accion: 'eliminacion', timestamp: new Date()
-  })
+  limpiarComentario.value = ''
 }
 
+async function confirmarLimpiarCelda() {
+  const { equipoId, jornada, dia } = limpiarMeta.value
+  if (!equipoId || !jornada || !dia) return
+
+  await limpiarMarcadoCelda(equipoId, dia, jornada, limpiarComentario.value)
+  cerrarModalLimpiar()
+}
 function buscarContratoIdPorEquipo(equipoId) {
   const cId = expandedContrato.value
   if (cId && (equiposByContrato.value[cId] || []).length) {
@@ -1600,50 +1912,6 @@ function buscarContratoIdPorEquipo(equipoId) {
     if (eq) return eq.contratoId
   }
   return null
-}
-
-async function validarYActualizar(equipoId, dia, valor, jornada, observaciones = '') {
-  const estado = letraToNombre(valor); if (!estado) return
-  const dd = parseInt(dia.slice(0, 2))
-  const fecha = new Date(year.value, mes.value, dd)
-  const clave = `${equipoId}-${jornada}-${dia}`
-  inputValues.value[clave] = valor
-
-  const auth = getAuth()
-  const currentUser = auth.currentUser
-  let nombre_completo = ''; let registradoPor = ''
-  if (currentUser) {
-    registradoPor = currentUser.email || ''
-    const userDocRef = doc(db, 'usuarios', currentUser.uid)
-    const userSnap = await getDoc(userDocRef)
-    if (userSnap.exists()) nombre_completo = userSnap.data().nombre_completo || ''
-  }
-  const docId = `${equipoId}_${jornada}_${dia}`
-  const contratoId = buscarContratoIdPorEquipo(equipoId) || ''
-  await setDoc(doc(db, 'historial_operatividad', `${docId}_${Date.now()}`), {
-    equipoId, contratoId, estado, fecha, jornada, nombre_completo, observaciones, registradoPor,
-    accion: 'actualizacion', timestamp: new Date()
-  })
-  await setDoc(doc(db, 'operatividad', docId), {
-    equipoId, contratoId, estado, fecha, jornada, nombre_completo, observaciones, registradoPor,
-    timestamp: new Date()
-  })
-  timestampsCelda.value[clave] = new Date()
-  savedBlinkKey.value = clave
-  setTimeout(() => { if (savedBlinkKey.value === clave) savedBlinkKey.value = '' }, 350)
-}
-
-async function actualizarValorCelda(clave, dia, valor, jornada) {
-  const upper = (valor || '').toUpperCase()
-  const yaTieneValor = getValorCelda(clave) !== ''
-  const puedeModificar = puedeEditar(timestampsCelda.value[clave])
-  if (yaTieneValor && !puedeModificar) { alert('Este turno ya no se puede editar. Solo disponible dentro de las 4 horas del día de registro.'); return }
-  if (rolUsuario.value === 'visualizador') { alert('No tienes permisos para editar.'); return }
-  if (upper === '') { inputValues.value[clave] = ''; await eliminarRegistroOperatividad(clave, dia, jornada); return }
-  if (!ALLOWED.includes(upper)) return
-  const obsActual = observacionesCelda.value[clave] || ''
-  inputValues.value[clave] = upper
-  await validarYActualizar(clave.split('-')[0], dia, upper, jornada, obsActual)
 }
 
 /* ======================= AGRUPACIÓN ======================= */
@@ -1803,7 +2071,12 @@ async function descargarExcelContrato(contrato) {
 const selectionMode = ref(false)
 const selectedCells = ref(new Map())
 const applyingBatch = ref(false)
-const batchModal = ref({ visible: false, estado: '', quiereComentario: false, comentario: '' })
+const batchModal = ref({
+  visible: false,
+  estado: '',
+  quiereComentario: false,
+  comentario: ''
+})
 const batchFeedback = ref({ text: '', error: false })
 
 const selectedCellsCount = computed(() => selectedCells.value.size)
@@ -1831,13 +2104,18 @@ function onCellClickSelect(equipoId, jornada, dia, contratoId){
 
 function clearSelection(){ selectedCells.value.clear() }
 
-function openBatchModal(){
+function openBatchModal() {
   if (selectedCellsCount.value === 0) return
-  batchModal.value = { visible: true, estado: '', quiereComentario: false, comentario: '' }
+  batchModal.value = {
+    visible: true,
+    estado: '',
+    quiereComentario: false,
+    comentario: ''
+  }
   batchFeedback.value = { text: '', error: false }
 }
 
-function closeBatchModal(){
+function closeBatchModal() {
   batchModal.value.visible = false
   batchModal.value.estado = ''
   batchModal.value.quiereComentario = false
@@ -1845,32 +2123,164 @@ function closeBatchModal(){
   batchFeedback.value = { text: '', error: false }
 }
 
-async function applyBatch(){
-  const estadoLetra = (batchModal.value.estado || '').toUpperCase()
-  if (!['D','F','M'].includes(estadoLetra)) { batchFeedback.value = { text: 'Selecciona un estado (D/F/M).', error: true }; return }
-  if (rolUsuario.value === 'visualizador') { batchFeedback.value = { text: 'No tienes permisos para editar.', error: true }; return }
+async function applyBatch() {
+  if (rolUsuario.value === 'visualizador') {
+    batchFeedback.value = { text: 'No tienes permisos para editar.', error: true }
+    return
+  }
+
+  if (!ALLOWED.includes(batchModal.value.estado)) {
+    batchFeedback.value = { text: 'Debes seleccionar D, F o M.', error: true }
+    return
+  }
+
+  const items = Array.from(selectedCells.value.entries())
 
   applyingBatch.value = true
-  let ok = 0, skipped = 0
+  batchProgress.value = {
+    visible: true,
+    total: items.length,
+    current: 0,
+    action: 'Registrando'
+  }
+
+  let ok = 0
+  let skipped = 0
+
   try {
-    const ops = []
-    for (const [key, meta] of selectedCells.value.entries()){
-      if (!puedeEditar(timestampsCelda.value[key])) { skipped++; continue }
-      const obs = batchModal.value.quiereComentario ? (batchModal.value.comentario || '') : (observacionesCelda.value[key] || '')
-      const { equipoId, jornada, dia } = meta
-      ops.push(validarYActualizar(equipoId, dia, estadoLetra, jornada, obs).then(()=> ok++).catch(()=> skipped++))
+    for (const [key, meta] of items) {
+      const equipoId = meta?.equipoId
+      const jornada = meta?.jornada
+      const dia = meta?.dia
+
+      batchProgress.value.current++
+
+      if (!equipoId || !jornada || !dia) {
+        skipped++
+        continue
+      }
+
+      const comentario = batchModal.value.quiereComentario
+        ? String(batchModal.value.comentario || '').trim()
+        : ''
+
+      try {
+        await guardarEstadoSimple(
+          equipoId,
+          dia,
+          jornada,
+          batchModal.value.estado,
+          comentario
+        )
+        ok++
+        await wait(40)
+      } catch (e) {
+        console.error('Error aplicando lote en celda:', { key, meta, e })
+        skipped++
+      }
     }
-    await Promise.allSettled(ops)
+
     const msg = `Aplicadas ${ok} celdas` + (skipped ? ` · Omitidas ${skipped}` : '')
     batchFeedback.value = { text: msg, error: false }
-    if (ok > 0) { clearSelection(); closeBatchModal() }
+
+    if (ok > 0) {
+      clearSelection()
+      closeBatchModal()
+    }
   } catch (e) {
     console.error(e)
     batchFeedback.value = { text: 'Ocurrió un error aplicando los cambios.', error: true }
-  } finally { applyingBatch.value = false }
+  } finally {
+    applyingBatch.value = false
+    setTimeout(() => {
+      batchProgress.value.visible = false
+      batchProgress.value.current = 0
+      batchProgress.value.total = 0
+      batchProgress.value.action = ''
+    }, 500)
+  }
+}
+const batchClearVisible = ref(false)
+const batchClearComentario = ref('')
+
+function openBatchClearModal() {
+  if (!selectedCellsCount.value) {
+    alert('No hay celdas seleccionadas.')
+    return
+  }
+  batchClearComentario.value = ''
+  batchClearVisible.value = true
 }
 
-async function applyBatchQuick(estadoLetra){
+function closeBatchClearModal() {
+  batchClearVisible.value = false
+  batchClearComentario.value = ''
+}
+
+async function confirmBatchClear() {
+  try {
+    const comentario = String(batchClearComentario.value || '').trim() || 'Limpieza masiva por error de carga.'
+    const items = Array.from(selectedCells.value.entries())
+
+    batchProgress.value = {
+      visible: true,
+      total: items.length,
+      current: 0,
+      action: 'Limpiando'
+    }
+
+    let ok = 0
+    let skipped = 0
+
+    for (const [key, meta] of items) {
+      const equipoId = meta?.equipoId
+      const jornada = meta?.jornada
+      const dia = meta?.dia
+
+      batchProgress.value.current++
+
+      if (!equipoId || !jornada || !dia) {
+        console.warn('Selección inválida omitida:', { key, meta })
+        skipped++
+        continue
+      }
+
+      if (!puedeEditar(timestampsCelda.value[key])) {
+        skipped++
+        continue
+      }
+
+      try {
+        await limpiarMarcadoCelda(equipoId, dia, jornada, comentario)
+        ok++
+        await wait(45)
+      } catch (error) {
+        console.error('Error limpiando selección:', { key, meta, error })
+        skipped++
+      }
+    }
+
+    if (ok > 0) {
+      clearSelection()
+      closeBatchClearModal()
+    }
+
+    if (skipped > 0) {
+      console.warn(`Limpieza completada con ${skipped} celdas omitidas.`)
+    }
+  } catch (error) {
+    console.error('Error al limpiar selección:', error)
+    alert('No se pudo limpiar una o más celdas seleccionadas.')
+  } finally {
+    setTimeout(() => {
+      batchProgress.value.visible = false
+      batchProgress.value.current = 0
+      batchProgress.value.total = 0
+      batchProgress.value.action = ''
+    }, 500)
+  }
+}
+async function applyBatchQuick(estadoLetra) {
   batchModal.value.estado = estadoLetra
   batchModal.value.quiereComentario = false
   batchModal.value.comentario = ''
@@ -1915,19 +2325,88 @@ onUnmounted(() => {
   document.body.style.overflow = ''
 })
 
-/* === Clic tradicional en la celda === */
-function onCellClick(equipoId, jornada, dia, contratoId, categoria, rowIndex, diaIndex){
+function onCellClick(equipoId, jornada, dia, contratoId, categoria, rowIndex, diaIndex) {
   if (selectionMode.value) {
     onCellClickSelect(equipoId, jornada, dia, contratoId)
     return
   }
+
   if (modoAcciones.value) {
     abrirHistorial(equipoId, jornada, dia)
     return
   }
+
   focusCell(contratoId, categoria, rowIndex, diaIndex, jornada)
 }
+async function guardarEstadoSimple(equipoId, dia, jornada, estadoLetra, comentarioManual = '') {
+  if (!equipoId || !dia || !jornada || !estadoLetra) return
 
+  const dd = parseInt(String(dia).slice(0, 2))
+  const fecha = new Date(year.value, mes.value, dd)
+  const contratoId = buscarContratoIdPorEquipo(equipoId) || ''
+  const clave = buildClave(equipoId, jornada, dia)
+
+  markProcessingCell(clave)
+
+  try {
+    const auth = getAuth()
+    const currentUser = auth.currentUser
+
+    let nombre_completo = ''
+    let registradoPor = ''
+
+    if (currentUser) {
+      registradoPor = currentUser.email || ''
+      const userDocRef = doc(db, 'usuarios', currentUser.uid)
+      const userSnap = await getDoc(userDocRef)
+      if (userSnap.exists()) {
+        nombre_completo = userSnap.data().nombre_completo || ''
+      }
+    }
+
+    const observaciones = String(comentarioManual || '').trim()
+    const docId = `${equipoId}_${jornada}_${dia}`
+
+    await setDoc(doc(db, 'operatividad', docId), {
+      contratoId,
+      equipoId,
+      estado: letraToNombre(estadoLetra),
+      fecha,
+      jornada,
+      nombre_completo,
+      observaciones,
+      registradoPor,
+      timestamp: new Date()
+    })
+
+    inputValues.value[clave] = estadoLetra
+    observacionesCelda.value[clave] = observaciones
+    usuariosCelda.value[clave] = nombre_completo
+      ? `${nombre_completo}${registradoPor ? ` (${registradoPor})` : ''}`
+      : (registradoPor || 'Desconocido')
+    timestampsCelda.value[clave] = new Date()
+
+    await setDoc(doc(db, 'historial_operatividad', `${docId}_${Date.now()}`), {
+      accion: 'actualizacion',
+      contratoId,
+      equipoId,
+      estado: letraToNombre(estadoLetra),
+      fecha,
+      jornada,
+      nombre_completo,
+      observaciones,
+      registradoPor,
+      timestamp: new Date()
+    })
+
+    savedBlinkKey.value = clave
+    setTimeout(() => {
+      if (savedBlinkKey.value === clave) savedBlinkKey.value = ''
+    }, 550)
+  } finally {
+    unmarkProcessingCell(clave)
+  }
+}
 /* === Arrastre táctil (mobile) === */
 const touchDragging = ref(false)
 const touchLongPress = ref(false)
@@ -1946,6 +2425,13 @@ function clearTouchTimers() {
     touchLongPressTimer = null
   }
 }
+const limpiarVisible = ref(false)
+const limpiarMeta = ref({
+  equipoId: '',
+  jornada: '',
+  dia: ''
+})
+const limpiarComentario = ref('')
 function handleCellTouchStart(e, equipoId, jornada, dia, contratoId) {
   if (!selectionMode.value) return
   e.preventDefault()
@@ -2127,6 +2613,24 @@ onUnmounted(() => {
 .sticky-col-2 { left: var(--col-interno); box-shadow: 2px 0 0 rgba(0,0,0,0.06); }
 .table thead th.sticky-col, .table thead th.sticky-col-2 { z-index: 4; }
 
+.horas-range {
+  cursor: pointer;
+  touch-action: pan-y;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.horas-range::-webkit-slider-thumb {
+  cursor: grab;
+}
+
+.horas-range:active::-webkit-slider-thumb {
+  cursor: grabbing;
+}
+
+.horas-num {
+  max-width: 92px;
+}
+
 /* Modal ajuste leve */
 .modal .list-group-item .btn { padding: .25rem .5rem; }
 
@@ -2225,7 +2729,73 @@ td.position-relative .btn-xs{
 
 /* Alerta */
 .alert-danger.shadow-sm h5 { font-weight: 700; }
+.cell-saved {
+  animation: pulseSaved .55s ease;
+}
 
+.cell-processing {
+  animation: pulseProcessing 1s ease-in-out infinite;
+  box-shadow: inset 0 0 0 2px rgba(13,110,253,.45), 0 0 0 2px rgba(13,110,253,.10);
+}
+
+.cell-clearing {
+  animation: pulseClearing .45s ease;
+  box-shadow: inset 0 0 0 2px rgba(220,53,69,.35), 0 0 0 2px rgba(220,53,69,.08);
+}
+
+@keyframes pulseSaved {
+  0%   { transform: scale(1); box-shadow: 0 0 0 rgba(25,135,84,0); }
+  40%  { transform: scale(1.04); box-shadow: 0 0 0 4px rgba(25,135,84,.18); }
+  100% { transform: scale(1); box-shadow: 0 0 0 rgba(25,135,84,0); }
+}
+
+@keyframes pulseProcessing {
+  0%   { box-shadow: inset 0 0 0 2px rgba(13,110,253,.22), 0 0 0 0 rgba(13,110,253,.15); }
+  50%  { box-shadow: inset 0 0 0 2px rgba(13,110,253,.55), 0 0 0 6px rgba(13,110,253,.08); }
+  100% { box-shadow: inset 0 0 0 2px rgba(13,110,253,.22), 0 0 0 0 rgba(13,110,253,.15); }
+}
+
+@keyframes pulseClearing {
+  0%   { transform: scale(1); background-color: rgba(220,53,69,.08); }
+  50%  { transform: scale(.97); background-color: rgba(220,53,69,.18); }
+  100% { transform: scale(1); background-color: transparent; }
+}
+
+.batch-progress-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 8px 18px rgba(0,0,0,.06);
+}
+
+.batch-progress-bar {
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(0,0,0,.06);
+}
+
+.batch-progress-bar .progress-bar {
+  transition: width .22s ease;
+}
+
+.batch-progress-pop-enter-from,
+.batch-progress-pop-leave-to {
+  opacity: 0;
+  transform: translateY(-6px) scale(.98);
+}
+
+.batch-progress-pop-enter-active,
+.batch-progress-pop-leave-active {
+  transition: all .25s ease;
+}
+
+.batch-progress-pop-enter-to,
+.batch-progress-pop-leave-from {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
 /* Animación alerta */
 .alert-pop-enter-from { opacity: 0; transform: translateY(-6px) scale(.98); filter: blur(1px); }
 .alert-pop-enter-active { transition: all .35s cubic-bezier(.2,.8,.2,1); }

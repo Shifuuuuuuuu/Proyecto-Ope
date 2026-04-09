@@ -9,10 +9,21 @@
           <p class="text-muted mb-0">Ingresa a los menus.</p>
         </div>
       </div>
+
       <!-- Grid -->
       <div class="row g-3 g-lg-4 justify-content-center">
         <div v-for="item in filteredMenu" :key="item.key" class="col-12 col-md-6 col-lg-4">
-          <div class="card menu-card h-100 border-0 shadow-sm">
+          <div class="card menu-card h-100 border-0 shadow-sm position-relative">
+            <!-- contador flotante -->
+            <div
+              v-if="esAdmin && item.counterValue > 0"
+              class="menu-counter-badge bounce-badge"
+              :class="item.counterClass"
+              :title="item.counterTitle"
+            >
+              {{ item.counterValue > 99 ? "99+" : item.counterValue }}
+            </div>
+
             <div class="card-body p-4 d-flex flex-column">
               <div class="d-flex align-items-start justify-content-between gap-2">
                 <div class="icon-wrap" :class="item.iconClass">
@@ -24,7 +35,10 @@
                 </span>
               </div>
 
-              <h5 class="mt-3 mb-1 fw-bold">{{ item.title }}</h5>
+              <h5 class="mt-3 mb-1 fw-bold">
+                {{ item.title }}
+              </h5>
+
               <p class="text-muted mb-3">{{ item.desc }}</p>
 
               <div class="mt-auto d-flex gap-2">
@@ -48,6 +62,7 @@
                 <span class="meta-chip">
                   <i class="bi bi-tag me-1"></i>{{ item.category }}
                 </span>
+
                 <span v-if="item.restricted" class="meta-chip danger">
                   <i class="bi bi-lock me-1"></i> Restringido
                 </span>
@@ -113,37 +128,124 @@
 import { ref, onMounted, computed, onBeforeUnmount } from "vue";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "@/firebase/config";
-import { doc, getDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  collection,
+  query,
+  where,
+  onSnapshot,
+} from "firebase/firestore";
 
-// Modal Bootstrap (opcional)
+// Modal Bootstrap
 import * as bootstrap from "bootstrap";
 
 const rol = ref("operador");
 const canSeeControlOT = ref(false);
+
+const arriendosSolicitados = ref(0);
+const fallasReportadas = ref(0);
 
 const q = ref("");
 
 const helpModalEl = ref(null);
 let helpModal = null;
 
+let unsubscribeAuth = null;
+let unsubscribeArriendos = null;
+let unsubscribeFallas = null;
+
 const helpData = ref(null);
 
+const esAdmin = computed(() => (rol.value || "").toLowerCase() === "admin");
+
+function detenerListenerArriendos() {
+  if (typeof unsubscribeArriendos === "function") {
+    unsubscribeArriendos();
+    unsubscribeArriendos = null;
+  }
+  arriendosSolicitados.value = 0;
+}
+
+function iniciarListenerArriendos() {
+  detenerListenerArriendos();
+
+  const qArriendos = query(
+    collection(db, "arriendos"),
+    where("estatus", "==", "Solicitado")
+  );
+
+  unsubscribeArriendos = onSnapshot(
+    qArriendos,
+    (snapshot) => {
+      arriendosSolicitados.value = snapshot.size || 0;
+    },
+    (error) => {
+      console.error("[MenuPrincipal] Error escuchando arriendos:", error);
+      arriendosSolicitados.value = 0;
+    }
+  );
+}
+
+function detenerListenerFallas() {
+  if (typeof unsubscribeFallas === "function") {
+    unsubscribeFallas();
+    unsubscribeFallas = null;
+  }
+  fallasReportadas.value = 0;
+}
+
+function iniciarListenerFallas() {
+  detenerListenerFallas();
+
+  const qFallas = query(
+    collection(db, "reportes_fallas"),
+    where("estatus", "==", "Reportado")
+  );
+
+  unsubscribeFallas = onSnapshot(
+    qFallas,
+    (snapshot) => {
+      fallasReportadas.value = snapshot.size || 0;
+    },
+    (error) => {
+      console.error("[MenuPrincipal] Error escuchando fallas:", error);
+      fallasReportadas.value = 0;
+    }
+  );
+}
+
+function detenerTodosLosContadores() {
+  detenerListenerArriendos();
+  detenerListenerFallas();
+}
+
+function iniciarTodosLosContadoresAdmin() {
+  iniciarListenerArriendos();
+  iniciarListenerFallas();
+}
+
 onMounted(() => {
-  // Roles
   const auth = getAuth();
-  onAuthStateChanged(auth, async (user) => {
+  unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+    detenerTodosLosContadores();
+
     if (!user) {
       rol.value = "operador";
       canSeeControlOT.value = false;
       return;
     }
+
     const snap = await getDoc(doc(db, "usuarios", user.uid));
     const r = (snap.exists() ? snap.data()?.rol : null) || "operador";
     rol.value = r;
     canSeeControlOT.value = r === "admin" || r === "visualizador";
+
+    if ((r || "").toLowerCase() === "admin") {
+      iniciarTodosLosContadoresAdmin();
+    }
   });
 
-  // Init modal
   if (helpModalEl.value) {
     helpModal = new bootstrap.Modal(helpModalEl.value, { backdrop: true });
   }
@@ -152,9 +254,14 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (helpModal) helpModal.dispose();
   helpModal = null;
+
+  detenerTodosLosContadores();
+
+  if (typeof unsubscribeAuth === "function") {
+    unsubscribeAuth();
+    unsubscribeAuth = null;
+  }
 });
-
-
 
 const menuItems = computed(() => {
   const base = [
@@ -169,6 +276,9 @@ const menuItems = computed(() => {
       badge: "Frecuente",
       help: true,
       bullets: ["Carga por contrato", "Registro diario", "Resumen por categoría"],
+      counterValue: 0,
+      counterClass: "",
+      counterTitle: "",
     },
     {
       key: "arriendos",
@@ -180,6 +290,9 @@ const menuItems = computed(() => {
       category: "Contratos",
       help: true,
       bullets: ["Crear solicitudes", "Seguimiento", "Historial"],
+      counterValue: esAdmin.value ? arriendosSolicitados.value : 0,
+      counterClass: "counter-blue",
+      counterTitle: `${arriendosSolicitados.value} solicitud(es) de arriendo pendiente(s)`,
     },
     {
       key: "fallas",
@@ -189,9 +302,11 @@ const menuItems = computed(() => {
       desc: "Registra, edita y gestiona reportes de fallas por contrato.",
       to: { name: "ReportesFallas" },
       category: "Mantenimiento",
-      badge: "Importante",
       help: true,
       bullets: ["Registrar falla", "Editar/actualizar", "Trazabilidad"],
+      counterValue: esAdmin.value ? fallasReportadas.value : 0,
+      counterClass: "counter-yellow",
+      counterTitle: `${fallasReportadas.value} reporte(s) de falla pendiente(s)`,
     },
     {
       key: "buscar",
@@ -203,6 +318,9 @@ const menuItems = computed(() => {
       category: "Consulta",
       help: true,
       bullets: ["Búsqueda global", "Filtros", "Acceso rápido"],
+      counterValue: 0,
+      counterClass: "",
+      counterTitle: "",
     },
     {
       key: "docs-equipos",
@@ -221,6 +339,9 @@ const menuItems = computed(() => {
         "Búsqueda por patente y categoría",
         "Filtro por fechas"
       ],
+      counterValue: 0,
+      counterClass: "",
+      counterTitle: "",
     }
   ];
 
@@ -237,6 +358,9 @@ const menuItems = computed(() => {
       restricted: true,
       help: true,
       bullets: ["Panel de OT", "Estados", "Monitoreo"],
+      counterValue: 0,
+      counterClass: "",
+      counterTitle: "",
     });
   }
 
@@ -260,7 +384,6 @@ function openHelp(item) {
 </script>
 
 <style scoped>
-/* Página */
 .menu-page {
   min-height: calc(100vh - 56px);
   background:
@@ -269,7 +392,6 @@ function openHelp(item) {
     linear-gradient(180deg, #ffffff, #fbfbfc);
 }
 
-/* Hero */
 .hero {
   position: relative;
   border-radius: 22px;
@@ -291,7 +413,6 @@ function openHelp(item) {
   }
 }
 
-/* ✅ Solo para que el título centrado se vea más pro */
 .title-glow {
   text-shadow: 0 10px 30px rgba(220, 53, 69, 0.18);
 }
@@ -327,7 +448,6 @@ function openHelp(item) {
   border-color: rgba(13, 110, 253, 0.20);
 }
 
-/* Search */
 .search .input-group-text {
   background: #fff;
   border-right: 0;
@@ -339,7 +459,6 @@ function openHelp(item) {
   box-shadow: none;
 }
 
-/* Chips */
 .chips {
   display: flex;
   flex-wrap: wrap;
@@ -360,17 +479,67 @@ function openHelp(item) {
   background: #fff;
 }
 
-/* Cards */
 .menu-card {
   border-radius: 22px;
   transition: transform 0.14s ease, box-shadow 0.14s ease;
+  overflow: hidden;
 }
 .menu-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.10) !important;
 }
 
-/* Icon */
+.menu-counter-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 3;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+}
+
+.counter-blue {
+  background: #0d6efd;
+  color: #fff;
+}
+
+.counter-yellow {
+  background: #ffc107;
+  color: #212529;
+}
+
+.bounce-badge {
+  animation: badgeBounce 1.2s infinite;
+  transform-origin: center;
+}
+
+@keyframes badgeBounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  40% {
+    transform: translateY(-4px) scale(1.08);
+  }
+  60% {
+    transform: translateY(-2px) scale(1.03);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bounce-badge {
+    animation: none;
+  }
+}
+
 .icon-wrap {
   width: 56px;
   height: 56px;
@@ -411,13 +580,11 @@ function openHelp(item) {
   font-weight: 800;
 }
 
-/* Buttons */
 .btn-pill {
   border-radius: 999px;
   font-weight: 900;
 }
 
-/* Meta */
 .meta {
   display: flex;
   gap: 0.5rem;
@@ -437,7 +604,6 @@ function openHelp(item) {
   color: #b21f2d;
 }
 
-/* Empty */
 .empty-icon {
   width: 58px;
   height: 58px;
@@ -449,5 +615,15 @@ function openHelp(item) {
   background: rgba(13, 110, 253, 0.10);
   color: #0b5ed7;
   margin: 0 auto;
+}
+
+@media (max-width: 575.98px) {
+  .menu-counter-badge {
+    top: 12px;
+    right: 12px;
+    min-width: 28px;
+    height: 28px;
+    font-size: 0.74rem;
+  }
 }
 </style>

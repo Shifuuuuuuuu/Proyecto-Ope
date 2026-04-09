@@ -37,9 +37,17 @@
         <!-- Left items -->
         <ul class="navbar-nav me-auto mt-3 mt-lg-0 gap-lg-1">
           <li class="nav-item">
-            <router-link class="nav-link xt-link" :class="isActive('/menu')" to="/menu">
+            <router-link class="nav-link xt-link inicio-alert-link" :class="isActive('/menu')" to="/menu">
               <i class="bi bi-house-door me-2"></i>
-              Inicio
+              <span>Inicio</span>
+
+              <span v-if="esAdmin && tieneArriendosPendientes" class="inicio-badge inicio-badge-blue bounce-badge" :title="`${arriendosSolicitados} arriendo(s) solicitado(s)`">
+                {{ arriendosSolicitados > 99 ? "99+" : arriendosSolicitados }}
+              </span>
+
+              <span v-if="esAdmin && tieneFallasPendientes" class="inicio-badge inicio-badge-yellow bounce-badge" :title="`${fallasReportadas} falla(s) reportada(s)`">
+                {{ fallasReportadas > 99 ? "99+" : fallasReportadas }}
+              </span>
             </router-link>
           </li>
 
@@ -54,34 +62,95 @@
           <!-- Admin dropdown -->
           <li class="nav-item dropdown" v-if="esAdmin">
             <a
-              class="nav-link xt-link dropdown-toggle"
+              class="nav-link xt-link dropdown-toggle admin-alert-link"
               href="#"
               role="button"
               data-bs-toggle="dropdown"
               aria-expanded="false"
             >
               <i class="bi bi-shield-lock me-2"></i>
-              Admin
+              <span>Admin</span>
+
+              <span
+                v-if="tieneSolicitudesPendientes"
+                class="admin-alert-badge bounce-badge"
+                :title="`${solicitudesPendientes} solicitud(es) pendiente(s)`"
+                aria-label="Solicitudes pendientes"
+              >
+                {{ solicitudesPendientes > 99 ? "99+" : solicitudesPendientes }}
+              </span>
             </a>
+
             <ul class="dropdown-menu dropdown-menu-end xt-dropdown">
               <li>
                 <router-link class="dropdown-item" to="/admin">
                   <i class="bi bi-speedometer2 me-2"></i> Panel Admin
                 </router-link>
               </li>
+
               <li>
                 <router-link class="dropdown-item" to="/cargar-certificado">
                   <i class="bi bi-file-earmark-arrow-up me-2"></i> Cargar Certificado
                 </router-link>
               </li>
+
               <li>
                 <router-link class="dropdown-item" to="/actividad-contratos">
                   <i class="bi bi-menu-button me-2"></i> Actividad de Contratos
                 </router-link>
               </li>
+
               <li>
-                <router-link class="dropdown-item" to="/aprobar-solicitudes-operatividad">
-                  <i class="bi bi-card-checklist me-2"></i> Solicitudes de Cambios
+                <router-link
+                  class="dropdown-item d-flex align-items-center justify-content-between gap-2"
+                  to="/aprobar-solicitudes-operatividad"
+                >
+                  <span>
+                    <i class="bi bi-card-checklist me-2"></i> Solicitudes de Cambios
+                  </span>
+
+                  <span
+                    v-if="tieneSolicitudesPendientes"
+                    class="dropdown-alert-pill"
+                  >
+                    {{ solicitudesPendientes > 99 ? "99+" : solicitudesPendientes }}
+                  </span>
+                </router-link>
+              </li>
+
+              <li>
+                <router-link
+                  class="dropdown-item d-flex align-items-center justify-content-between gap-2"
+                  to="/arriendos"
+                >
+                  <span>
+                    <i class="bi bi-truck me-2"></i> Solicitudes de Arriendo
+                  </span>
+
+                  <span
+                    v-if="tieneArriendosPendientes"
+                    class="dropdown-alert-pill dropdown-alert-pill-blue"
+                  >
+                    {{ arriendosSolicitados > 99 ? "99+" : arriendosSolicitados }}
+                  </span>
+                </router-link>
+              </li>
+
+              <li>
+                <router-link
+                  class="dropdown-item d-flex align-items-center justify-content-between gap-2"
+                  to="/reportes-fallas"
+                >
+                  <span>
+                    <i class="bi bi-exclamation-triangle me-2"></i> Reportes de Fallas
+                  </span>
+
+                  <span
+                    v-if="tieneFallasPendientes"
+                    class="dropdown-alert-pill dropdown-alert-pill-yellow"
+                  >
+                    {{ fallasReportadas > 99 ? "99+" : fallasReportadas }}
+                  </span>
                 </router-link>
               </li>
             </ul>
@@ -90,46 +159,36 @@
 
         <!-- Right items -->
         <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2 mt-3 mt-lg-0">
-
           <!-- User dropdown -->
           <li class="nav-item dropdown" v-if="estaLogueado">
             <a
-              class="nav-link xt-user dropdown-toggle"
+              class="nav-link dropdown-toggle xt-user-toggle"
               href="#"
               role="button"
               data-bs-toggle="dropdown"
               aria-expanded="false"
             >
-              <span class="avatar">{{ avatarInitial }}</span>
-              <span class="d-none d-lg-inline">
-                <span class="me-2">{{ displayNameComputed }}</span>
+              <span class="avatar-circle">{{ avatarInitial }}</span>
 
+              <span class="user-meta d-none d-md-inline-flex">
+                <span class="user-name">{{ displayNameComputed }}</span>
+                <span class="role-pill" :class="badgeClass">{{ rolLabel }}</span>
               </span>
             </a>
 
-            <ul class="dropdown-menu dropdown-menu-end xt-dropdown p-2">
-              <li class="px-2 py-2">
-                <div class="d-flex align-items-center gap-2">
-                  <span class="avatar avatar-lg">{{ avatarInitial }}</span>
-                  <div class="minw-0">
-                    <div class="fw-semibold text-truncate">
-                      {{ displayNameComputed }}
-                      <span class="badge xt-badge ms-2" :class="badgeClass">{{ rolLabel }}</span>
-                    </div>
-                    <div class="text-muted small text-truncate">{{ userEmail || "—" }}</div>
-                  </div>
-                </div>
+            <ul class="dropdown-menu dropdown-menu-end xt-dropdown user-menu">
+              <li class="px-3 py-2 user-summary">
+                <div class="fw-semibold text-truncate">{{ displayNameComputed }}</div>
+                <div class="small text-muted text-truncate">{{ userEmail || "Sin correo" }}</div>
               </li>
 
-              <li><hr class="dropdown-divider my-2" /></li>
+              <li><hr class="dropdown-divider" /></li>
 
               <li>
                 <router-link class="dropdown-item" to="/perfil">
-                  <i class="bi bi-gear me-2"></i>Perfil
+                  <i class="bi bi-person-circle me-2"></i> Mi perfil
                 </router-link>
               </li>
-
-              <li><hr class="dropdown-divider my-2" /></li>
 
               <li>
                 <button class="dropdown-item text-danger" @click="cerrarSesion" :disabled="loadingUser">
@@ -140,9 +199,9 @@
             </ul>
           </li>
 
-          <!-- Login button -->
+          <!-- Login -->
           <li class="nav-item" v-else>
-            <router-link class="btn btn-outline-light xt-btn" to="/login">
+            <router-link class="btn btn-light btn-sm xt-login-btn" to="/login">
               <i class="bi bi-box-arrow-in-right me-2"></i>
               Iniciar sesión
             </router-link>
@@ -157,61 +216,47 @@
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  collection,
+  query,
+  where,
+  onSnapshot,
+} from "firebase/firestore";
 import { db } from "../firebase/config";
 import { logoutUser } from "../firebase/auth";
 
-const router = useRouter();
-const route = useRoute();
-
-const rolUsuario = ref("");
-const estaLogueado = ref(false);
-const userEmail = ref("");
-const displayName = ref("");
-const loadingUser = ref(false);
-
-/** Carrusel de logos (mismo porte). */
+/**
+ * Logos del carrusel
+ */
 const logos = [
   new URL("../img/Logo XT Servicios.png", import.meta.url).href,
   new URL("../img/xtreme mining con fondo.jpg", import.meta.url).href,
   new URL("../img/Xtreme Hormigoenes y mortero.png", import.meta.url).href,
 ];
 
+const router = useRouter();
+const route = useRoute();
+
+const estaLogueado = ref(false);
+const userEmail = ref("");
+const rolUsuario = ref("");
+const displayName = ref("");
+const loadingUser = ref(false);
+
+const solicitudesPendientes = ref(0);
+const arriendosSolicitados = ref(0);
+const fallasReportadas = ref(0);
+
 const currentIndex = ref(0);
 let timerId = null;
+let unsubscribeSolicitudes = null;
+let unsubscribeArriendos = null;
+let unsubscribeFallas = null;
+let unsubscribeAuth = null;
+
 const INTERVALO_MS = 3200;
-
-function startCarousel() {
-  stopCarousel();
-  timerId = setInterval(() => {
-    currentIndex.value = (currentIndex.value + 1) % logos.length;
-  }, INTERVALO_MS);
-}
-function stopCarousel() {
-  if (timerId) {
-    clearInterval(timerId);
-    timerId = null;
-  }
-}
-
-onMounted(() => {
-  const auth = getAuth();
-
-  onAuthStateChanged(auth, async (user) => {
-    estaLogueado.value = !!user;
-    userEmail.value = user?.email || "";
-    rolUsuario.value = "";
-    displayName.value = "";
-
-    if (user) {
-      await cargarPerfil(user.uid);
-    }
-  });
-
-  startCarousel();
-});
-
-onBeforeUnmount(() => stopCarousel());
 
 const ALLOWED_INGRESO_EMAILS = [
   "sectecentral@xtrememining.cl",
@@ -221,6 +266,116 @@ const ALLOWED_INGRESO_EMAILS = [
   "secteccoya@xtrememining.cl",
 ];
 
+function startCarousel() {
+  stopCarousel();
+  timerId = setInterval(() => {
+    currentIndex.value = (currentIndex.value + 1) % logos.length;
+  }, INTERVALO_MS);
+}
+
+function stopCarousel() {
+  if (timerId) {
+    clearInterval(timerId);
+    timerId = null;
+  }
+}
+
+function detenerListenerSolicitudes() {
+  if (typeof unsubscribeSolicitudes === "function") {
+    unsubscribeSolicitudes();
+    unsubscribeSolicitudes = null;
+  }
+  solicitudesPendientes.value = 0;
+}
+
+function iniciarListenerSolicitudes() {
+  detenerListenerSolicitudes();
+
+  const q = query(
+    collection(db, "solicitudes_edicion_operatividad"),
+    where("estado", "==", "pendiente")
+  );
+
+  unsubscribeSolicitudes = onSnapshot(
+    q,
+    (snapshot) => {
+      solicitudesPendientes.value = snapshot.size || 0;
+    },
+    (error) => {
+      console.error("[Navbar] Error escuchando solicitudes pendientes:", error);
+      solicitudesPendientes.value = 0;
+    }
+  );
+}
+
+function detenerListenerArriendos() {
+  if (typeof unsubscribeArriendos === "function") {
+    unsubscribeArriendos();
+    unsubscribeArriendos = null;
+  }
+  arriendosSolicitados.value = 0;
+}
+
+function iniciarListenerArriendos() {
+  detenerListenerArriendos();
+
+  const q = query(
+    collection(db, "arriendos"),
+    where("estatus", "==", "Solicitado")
+  );
+
+  unsubscribeArriendos = onSnapshot(
+    q,
+    (snapshot) => {
+      arriendosSolicitados.value = snapshot.size || 0;
+    },
+    (error) => {
+      console.error("[Navbar] Error escuchando arriendos solicitados:", error);
+      arriendosSolicitados.value = 0;
+    }
+  );
+}
+
+function detenerListenerFallas() {
+  if (typeof unsubscribeFallas === "function") {
+    unsubscribeFallas();
+    unsubscribeFallas = null;
+  }
+  fallasReportadas.value = 0;
+}
+
+function iniciarListenerFallas() {
+  detenerListenerFallas();
+
+  const q = query(
+    collection(db, "reportes_fallas"),
+    where("estatus", "==", "Reportado")
+  );
+
+  unsubscribeFallas = onSnapshot(
+    q,
+    (snapshot) => {
+      fallasReportadas.value = snapshot.size || 0;
+    },
+    (error) => {
+      console.error("[Navbar] Error escuchando reportes de fallas:", error);
+      fallasReportadas.value = 0;
+    }
+  );
+}
+
+function detenerTodosLosListenersAlertas() {
+  detenerListenerSolicitudes();
+  detenerListenerArriendos();
+  detenerListenerFallas();
+}
+
+function iniciarTodosLosListenersAlertas() {
+  iniciarListenerSolicitudes();
+  iniciarListenerArriendos();
+  iniciarListenerFallas();
+}
+
 async function cargarPerfil(uid) {
   loadingUser.value = true;
   try {
@@ -229,9 +384,9 @@ async function cargarPerfil(uid) {
       const data = snap.data() || {};
       rolUsuario.value = (data.rol || "").toString();
 
-      // Intentos de nombre (ajusta a tu esquema real)
       displayName.value =
         data.nombre ||
+        data.nombre_completo ||
         data.Nombre_completo ||
         data.displayName ||
         data.name ||
@@ -257,6 +412,10 @@ const puedeVerIngresoContratos = computed(() => {
 
   return false;
 });
+
+const tieneSolicitudesPendientes = computed(() => solicitudesPendientes.value > 0);
+const tieneArriendosPendientes = computed(() => arriendosSolicitados.value > 0);
+const tieneFallasPendientes = computed(() => fallasReportadas.value > 0);
 
 const displayNameComputed = computed(() => {
   if (displayName.value?.trim()) return displayName.value.trim();
@@ -287,7 +446,6 @@ const badgeClass = computed(() => {
 });
 
 function isActive(path) {
-  // Activo exacto + subrutas
   const p = route.path || "";
   return p === path || p.startsWith(path + "/") ? "active" : "";
 }
@@ -295,6 +453,7 @@ function isActive(path) {
 async function cerrarSesion() {
   try {
     loadingUser.value = true;
+    detenerTodosLosListenersAlertas();
     await logoutUser();
     rolUsuario.value = "";
     estaLogueado.value = false;
@@ -307,6 +466,38 @@ async function cerrarSesion() {
     loadingUser.value = false;
   }
 }
+
+onMounted(() => {
+  const auth = getAuth();
+
+  unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+    estaLogueado.value = !!user;
+    userEmail.value = user?.email || "";
+    rolUsuario.value = "";
+    displayName.value = "";
+    detenerTodosLosListenersAlertas();
+
+    if (user) {
+      await cargarPerfil(user.uid);
+
+      if ((rolUsuario.value || "").toLowerCase() === "admin") {
+        iniciarTodosLosListenersAlertas();
+      }
+    }
+  });
+
+  startCarousel();
+});
+
+onBeforeUnmount(() => {
+  stopCarousel();
+  detenerTodosLosListenersAlertas();
+
+  if (typeof unsubscribeAuth === "function") {
+    unsubscribeAuth();
+    unsubscribeAuth = null;
+  }
+});
 </script>
 
 <style scoped>
@@ -327,25 +518,13 @@ async function cerrarSesion() {
   background: rgba(255, 255, 255, 0.95);
   padding: 6px 10px;
   border-radius: 14px;
-  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.12);
 }
 
-.brand-title {
-  font-weight: 800;
-  letter-spacing: 0.2px;
-  font-size: 0.98rem;
-}
-
-.brand-subtitle {
-  opacity: 0.9;
-  font-size: 0.78rem;
-}
-
-/* Carrusel */
 .logo-carousel {
   position: relative;
   width: 180px;
-  height: 44px;
+  height: 42px;
   overflow: hidden;
 }
 
@@ -356,10 +535,8 @@ async function cerrarSesion() {
   height: 100%;
   object-fit: contain;
   opacity: 0;
-  transform: scale(0.985);
-  transition: opacity 0.45s ease, transform 0.45s ease;
-  user-select: none;
-  -webkit-user-drag: none;
+  transform: scale(0.98);
+  transition: opacity 0.5s ease, transform 0.5s ease;
 }
 
 .carousel-img.is-active {
@@ -367,155 +544,276 @@ async function cerrarSesion() {
   transform: scale(1);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .carousel-img {
-    transition: none;
+/* Links */
+.xt-link {
+  color: rgba(255, 255, 255, 0.92) !important;
+  font-weight: 600;
+  border-radius: 12px;
+  padding: 0.72rem 0.95rem !important;
+  transition: all 0.22s ease;
+}
+
+.xt-link:hover,
+.xt-link.active {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* Inicio alert */
+.inicio-alert-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: nowrap;
+}
+
+.inicio-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  margin-left: 0.15rem;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+.inicio-badge-blue {
+  background: #0d6efd;
+  color: #fff;
+}
+
+.inicio-badge-yellow {
+  background: #ffc107;
+  color: #212529;
+}
+
+/* Admin alert */
+.admin-alert-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.admin-alert-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #ffc107;
+  color: #212529;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.18);
+}
+
+.dropdown-alert-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+}
+
+.dropdown-alert-pill-blue {
+  background: #0d6efd;
+  color: #fff;
+}
+
+.dropdown-alert-pill-yellow {
+  background: #ffc107;
+  color: #212529;
+}
+
+.dropdown-alert-pill:not(.dropdown-alert-pill-blue):not(.dropdown-alert-pill-yellow) {
+  background: #ffc107;
+  color: #212529;
+}
+
+.bounce-badge {
+  animation: badgeBounce 1.2s infinite;
+  transform-origin: center;
+}
+
+@keyframes badgeBounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  40% {
+    transform: translateY(-4px) scale(1.08);
+  }
+  60% {
+    transform: translateY(-2px) scale(1.03);
   }
 }
 
-/* Links como pill */
-.xt-link {
+@media (prefers-reduced-motion: reduce) {
+  .bounce-badge {
+    animation: none;
+  }
+}
+
+/* User dropdown */
+.xt-user-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.55rem 0.8rem;
+  gap: 0.75rem;
+  color: #fff !important;
+  text-decoration: none;
+  padding: 0.3rem 0.2rem !important;
+}
+
+.avatar-circle {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: #c62839;
+  font-weight: 800;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.15);
+}
+
+.user-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.user-name {
+  font-weight: 700;
+  color: #fff;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.role-pill {
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.18rem 0.55rem;
   border-radius: 999px;
-  color: rgba(255, 255, 255, 0.95) !important;
-  font-weight: 600;
-  transition: background 0.15s ease, transform 0.15s ease;
+  letter-spacing: 0.2px;
+  border: 1px solid transparent;
 }
 
-.xt-link:hover {
-  background: rgba(255, 255, 255, 0.14);
-  transform: translateY(-1px);
+.role-pill.is-admin {
+  background: rgba(255, 193, 7, 0.18);
+  color: #fff3cd;
+  border-color: rgba(255, 193, 7, 0.25);
 }
 
-.xt-link.active {
-  background: rgba(255, 255, 255, 0.22);
+.role-pill.is-operator {
+  background: rgba(13, 202, 240, 0.18);
+  color: #d1f7ff;
+  border-color: rgba(13, 202, 240, 0.25);
+}
+
+.role-pill.is-viewer {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.role-pill.is-default {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 /* Dropdown */
 .xt-dropdown {
-  border: 0;
+  border: none;
   border-radius: 16px;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
-  min-width: 280px;
+  padding: 0.55rem;
+  min-width: 265px;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.16);
 }
 
-.dropdown-item {
+.xt-dropdown .dropdown-item {
   border-radius: 12px;
-  padding: 0.55rem 0.75rem;
+  padding: 0.72rem 0.85rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
 }
 
-.dropdown-item:hover {
-  background: rgba(220, 53, 69, 0.1);
+.xt-dropdown .dropdown-item:hover {
+  background: rgba(220, 53, 69, 0.08);
+  color: #b71c2b;
 }
 
-/* Usuario */
-.xt-user {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 0.35rem 0.6rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.xt-user:hover {
-  background: rgba(255, 255, 255, 0.18);
-}
-
-.avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  background: rgba(255, 255, 255, 0.92);
-  color: rgba(170, 25, 40, 1);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
-}
-.avatar-lg {
-  width: 42px;
-  height: 42px;
-}
-
-.xt-badge {
-  border-radius: 999px;
-  padding: 0.35rem 0.55rem;
-  font-weight: 700;
-  letter-spacing: 0.2px;
-}
-
-.xt-badge.is-admin {
-  background: rgba(220, 53, 69, 0.16);
-  color: #b21f2d;
-  border: 1px solid rgba(220, 53, 69, 0.25);
-}
-
-.xt-badge.is-operator {
-  background: rgba(13, 110, 253, 0.12);
-  color: #0b5ed7;
-  border: 1px solid rgba(13, 110, 253, 0.22);
-}
-
-.xt-badge.is-viewer {
-  background: rgba(25, 135, 84, 0.12);
-  color: #146c43;
-  border: 1px solid rgba(25, 135, 84, 0.22);
-}
-
-.xt-badge.is-default {
-  background: rgba(108, 117, 125, 0.12);
-  color: #495057;
-  border: 1px solid rgba(108, 117, 125, 0.22);
-}
-
-/* Status chip */
-.xt-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.35rem 0.6rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.92);
-  font-weight: 700;
-}
-
-.xt-status .dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.6);
-}
-
-.xt-status.is-on .dot {
-  background: #21d07a;
-  box-shadow: 0 0 0 4px rgba(33, 208, 122, 0.15);
-}
-.xt-status.is-off .dot {
-  background: #ffd166;
-  box-shadow: 0 0 0 4px rgba(255, 209, 102, 0.15);
+.user-summary {
+  max-width: 260px;
 }
 
 /* Login button */
-.xt-btn {
-  border-radius: 999px;
-  padding: 0.55rem 0.95rem;
-  font-weight: 800;
+.xt-login-btn {
+  border-radius: 12px;
+  font-weight: 700;
+  padding: 0.6rem 0.95rem;
 }
 
-/* Mobile spacing */
+/* Responsive */
 @media (max-width: 991.98px) {
   .xt-link {
-    width: 100%;
-    justify-content: flex-start;
+    padding-inline: 0.8rem !important;
   }
+
+  .xt-user-toggle {
+    padding-top: 0.65rem !important;
+    padding-bottom: 0.35rem !important;
+  }
+
+  .user-meta {
+    display: inline-flex !important;
+  }
+
+  .user-name {
+    max-width: 150px;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .navbar-brand {
+    min-width: auto;
+  }
+
+  .logo-carousel {
+    width: 150px;
+    height: 38px;
+  }
+
+  .user-name {
+    max-width: 110px;
+  }
+
   .xt-dropdown {
     min-width: 100%;
+  }
+
+  .inicio-badge {
+    min-width: 20px;
+    height: 20px;
+    font-size: 0.68rem;
+    padding: 0 5px;
   }
 }
 </style>

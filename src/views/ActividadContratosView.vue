@@ -49,9 +49,6 @@
                   {{ c.nombre || `Contrato ${c.id}` }}
                 </option>
               </select>
-              <div class="small text-muted mt-1">
-                No se consideran contratos con <code>activo === false</code>.
-              </div>
             </div>
 
             <div class="col-12 col-lg-3">
