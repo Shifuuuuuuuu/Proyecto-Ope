@@ -399,8 +399,9 @@
                                         placeholder="D/F/M"
                                         maxlength="1"
                                         @keydown="onCellKeydown($event, contrato.id, categoria, rowIndex, diaIndex, 'A', grupo.length, diasPorContrato(contrato.id).length, `${equipo.id}-A-${dia}`, dia)"
-                                        @click.stop
-                                        @mousedown.stop
+                                        @focus="onCellInputFocus(contrato.id, categoria, rowIndex, diaIndex, equipo.id, 'A', dia)"
+                                        @click="onInputCellClick($event, equipo.id, 'A', dia, contrato.id, categoria, rowIndex, diaIndex)"
+                                        @mousedown="onInputCellMouseDown($event, equipo.id, 'A', dia, contrato.id)"
                                         :ref="el => setCellRef(contrato.id, categoria, rowIndex, diaIndex, 'A', el)"
                                         :readonly="rolUsuario === 'visualizador'"
                                         :title="generarTooltip(`${equipo.id}-A-${dia}`)"
@@ -409,7 +410,16 @@
                                         <button
                                           class="btn btn-light btn-xs"
                                           title="Agregar/Editar comentario"
-                                          @click.stop="abrirComentario(`${equipo.id}`, 'A', dia)"
+                                          @click.stop="abrirFloatingComment({
+                                          contratoId: contrato.id,
+                                          categoria,
+                                          rowIndex,
+                                          diaIndex,
+                                          equipoId: `${equipo.id}`,
+                                          jornada: 'A',
+                                          dia,
+                                          clave: `${equipo.id}-A-${dia}`
+                                        })"
                                         >📝</button>
 
                                         <button
@@ -456,8 +466,9 @@
                                         placeholder="D/F/M"
                                         maxlength="1"
                                         @keydown="onCellKeydown($event, contrato.id, categoria, rowIndex, diaIndex, 'B', grupo.length, diasPorContrato(contrato.id).length, `${equipo.id}-B-${dia}`, dia)"
-                                        @click.stop
-                                        @mousedown.stop
+                                        @focus="onCellInputFocus(contrato.id, categoria, rowIndex, diaIndex, equipo.id, 'B', dia)"
+                                        @click="onInputCellClick($event, equipo.id, 'B', dia, contrato.id, categoria, rowIndex, diaIndex)"
+                                        @mousedown="onInputCellMouseDown($event, equipo.id, 'B', dia, contrato.id)"
                                         :ref="el => setCellRef(contrato.id, categoria, rowIndex, diaIndex, 'B', el)"
                                         :readonly="rolUsuario === 'visualizador'"
                                         :title="generarTooltip(`${equipo.id}-B-${dia}`)"
@@ -466,7 +477,16 @@
                                         <button
                                           class="btn btn-light btn-xs"
                                           title="Agregar/Editar comentario"
-                                          @click.stop="abrirComentario(`${equipo.id}`, 'B', dia)"
+                                          @click.stop="abrirFloatingComment({
+                                            contratoId: contrato.id,
+                                            categoria,
+                                            rowIndex,
+                                            diaIndex,
+                                            equipoId: `${equipo.id}`,
+                                            jornada: 'B',
+                                            dia,
+                                            clave: `${equipo.id}-B-${dia}`
+                                          })"
                                         >📝</button>
 
                                         <button
@@ -561,6 +581,75 @@
               </div>
             </div>
           </div>
+          <transition name="floating-comment-pop">
+            <div
+              v-if="floatingCommentVisible && !selectionMode && !modoAcciones && !isVisualizador"
+              class="floating-comment-card shadow-lg"
+            >
+              <div class="floating-comment-card__header">
+                <div>
+                  <div class="fw-semibold">
+                    <i class="bi bi-chat-left-text me-2"></i>
+                    Comentario rápido
+                  </div>
+                  <div class="small text-muted">
+                    Equipo: {{ floatingCommentMeta.equipoId }} · Turno {{ floatingCommentMeta.jornada }} · Día {{ floatingCommentMeta.dia }}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  class="btn-close"
+                  @click="cerrarFloatingComment"
+                ></button>
+              </div>
+
+              <div class="floating-comment-card__body">
+                <div class="small text-muted mb-2">
+                  Puedes agregar un comentario para esta casilla. Si no escribes nada, quedará el comentario automático del estado.
+                </div>
+
+                <textarea
+                  class="form-control"
+                  rows="3"
+                  v-model="floatingCommentTexto"
+                  placeholder="Ej: equipo operativo sin novedad / falla hidráulica / mantención preventiva"
+                ></textarea>
+
+                <div class="d-flex justify-content-end gap-2 mt-3">
+                  <button
+                    class="btn btn-outline-secondary btn-sm"
+                    @click="cerrarFloatingComment"
+                    :disabled="floatingCommentSaving"
+                  >
+                    Cerrar
+                  </button>
+
+                  <button
+                    class="btn btn-danger btn-sm"
+                    @click="floatingCommentTexto = ''"
+                    :disabled="floatingCommentSaving"
+                  >
+                    Limpiar texto
+                  </button>
+
+                  <button
+                    class="btn btn-primary btn-sm"
+                    @click="guardarFloatingComment"
+                    :disabled="floatingCommentSaving"
+                  >
+                    <span
+                      v-if="floatingCommentSaving"
+                      class="spinner-border spinner-border-sm me-2"
+                      role="status"
+                      aria-hidden="true"
+                    ></span>
+                    Guardar comentario
+                  </button>
+                </div>
+              </div>
+            </div>
+          </transition>
           <!-- Modal Limpiar marcado individual -->
           <div
             class="modal fade show"
@@ -1236,6 +1325,31 @@ async function onCellKeydown(
   const maxCol = totalDias * perDay - 1
   let r = rowIdx
 
+  const [equipoId] = String(clave || '').split('-')
+
+  const openCardForCurrentCell = () => {
+    if (!equipoId) return
+    abrirFloatingComment({
+      contratoId,
+      categoria,
+      rowIndex: rowIdx,
+      diaIndex: diaIdx,
+      equipoId,
+      jornada: turno,
+      dia,
+      clave,
+    })
+  }
+
+  const focusNewCellAndSyncCard = (newRow, newCol) => {
+    const newDia = Math.floor(newCol / perDay)
+    const newTurno = (newCol % 2 === 0) ? 'A' : 'B'
+
+    nextTick(() => {
+      focusCell(contratoId, categoria, newRow, newDia, newTurno)
+    })
+  }
+
   if (k === 'ARROWRIGHT' || k === 'ARROWLEFT' || k === 'ARROWDOWN' || k === 'ARROWUP') {
     e.preventDefault()
 
@@ -1244,9 +1358,7 @@ async function onCellKeydown(
     if (k === 'ARROWDOWN' && r < totalRows - 1) r++
     if (k === 'ARROWUP' && r > 0) r--
 
-    const newDia = Math.floor(col / perDay)
-    const newTurno = (col % 2 === 0) ? 'A' : 'B'
-    focusCell(contratoId, categoria, r, newDia, newTurno)
+    focusNewCellAndSyncCard(r, col)
     return
   }
 
@@ -1259,9 +1371,7 @@ async function onCellKeydown(
       col = 0
     }
 
-    const newDia = Math.floor(col / perDay)
-    const newTurno = (col % 2 === 0) ? 'A' : 'B'
-    focusCell(contratoId, categoria, r, newDia, newTurno)
+    focusNewCellAndSyncCard(r, col)
     return
   }
 
@@ -1270,33 +1380,44 @@ async function onCellKeydown(
   if (k === 'BACKSPACE' || k === 'DELETE') {
     e.preventDefault()
 
-    const [equipoId] = String(clave || '').split('-')
     if (!equipoId) return
 
     await limpiarMarcadoCelda(equipoId, dia, turno, 'Limpieza manual del registro.')
+    cerrarFloatingComment()
     return
   }
 
   if (ALLOWED.includes(k)) {
     e.preventDefault()
 
-    const [equipoId] = String(clave || '').split('-')
     if (!equipoId) return
 
-    await guardarEstadoSimple(equipoId, dia, turno, k)
+    const comentarioActual = String(observacionesCelda.value[clave] || '').trim()
+    const comentarioFinal = comentarioActual || getComentarioAutomaticoPorEstado(k)
 
-    if (col < maxCol) col++
-    else if (r < totalRows - 1) {
-      r++
-      col = 0
-    }
-
-    const newDia = Math.floor(col / perDay)
-    const newTurno = (col % 2 === 0) ? 'A' : 'B'
-
-    nextTick(() => {
-      focusCell(contratoId, categoria, r, newDia, newTurno)
+    // Mostrar card al instante, sin esperar Firestore
+    floatingCommentTexto.value = comentarioFinal
+    abrirFloatingComment({
+      contratoId,
+      categoria,
+      rowIndex: rowIdx,
+      diaIndex: diaIdx,
+      equipoId,
+      jornada: turno,
+      dia,
+      clave,
     })
+
+    // Guardado real
+    guardarEstadoSimple(equipoId, dia, turno, k, comentarioFinal).catch((error) => {
+      console.error('Error guardando estado:', error)
+    })
+
+    // Mantenerse en la misma celda
+    nextTick(() => {
+      focusCell(contratoId, categoria, rowIdx, diaIdx, turno)
+    })
+
     return
   }
 
@@ -1809,7 +1930,9 @@ async function abrirHistorial(equipoId, jornada, dia) {
   historialMeta.value = { equipoId, jornada, dia }
   historialVisible.value = true
   cargandoHistorial.value = true
+
   const { start, end } = rangoDia(dia)
+
   try {
     const qh = query(
       collection(db, 'historial_operatividad'),
@@ -1817,11 +1940,15 @@ async function abrirHistorial(equipoId, jornada, dia) {
       where('jornada', '==', jornada),
       where('fecha', '>=', start),
       where('fecha', '<', end),
-      orderBy('fecha')
+      orderBy('fecha'),
+      orderBy('timestamp', 'desc')
     )
+
     const sh = await getDocs(qh)
     historialItems.value = sh.docs.map(d => ({ id: d.id, ...d.data() }))
-  } catch {
+  } catch (error) {
+    console.warn('Fallback historial sin índice compuesto:', error)
+
     const qh = query(
       collection(db, 'historial_operatividad'),
       where('equipoId', '==', equipoId),
@@ -1829,28 +1956,135 @@ async function abrirHistorial(equipoId, jornada, dia) {
       where('fecha', '>=', start),
       where('fecha', '<', end)
     )
+
     const sh = await getDocs(qh)
     historialItems.value = sh.docs
       .map(d => ({ id: d.id, ...d.data() }))
       .sort((a, b) => {
-        const da = a.fecha?.toDate ? a.fecha.toDate() : new Date(a.fecha)
-        const dbb = b.fecha?.toDate ? b.fecha.toDate() : new Date(b.fecha)
-        return da - dbb
+        const ta = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(a.timestamp || a.fecha)
+        const tb = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(b.timestamp || b.fecha)
+        return tb - ta
       })
-  } finally { cargandoHistorial.value = false }
+  } finally {
+    cargandoHistorial.value = false
+  }
 }
 
 /* ======================= COMENTARIO INDIVIDUAL ======================= */
 const comentarioVisible = ref(false)
 const comentarioTexto = ref('')
 const comentarioMeta = ref({ equipoId: '', jornada: '', dia: '' })
+const floatingCommentVisible = ref(false)
+const floatingCommentSaving = ref(false)
+const floatingCommentTexto = ref('')
+const floatingCommentMeta = ref({
+  contratoId: '',
+  categoria: '',
+  rowIndex: -1,
+  diaIndex: -1,
+  equipoId: '',
+  jornada: '',
+  dia: '',
+  clave: '',
+})
 
-function abrirComentario(equipoId, jornada, dia) {
-  if (isVisualizador.value) { alert('Tu rol no permite agregar comentarios.'); return }
-  comentarioMeta.value = { equipoId, jornada, dia }
-  comentarioTexto.value = observacionesCelda.value[`${equipoId}-${jornada}-${dia}`] || ''
-  comentarioVisible.value = true
+function getComentarioAutomaticoPorEstado(estado) {
+  const map = {
+    D: 'EQUIPO OPERATIVO',
+    F: 'EQUIPO POR FALLA MECANICA',
+    M: 'MANTENCIÓN RUTINARIA',
+  }
+  return map[String(estado || '').toUpperCase()] || 'REGISTRO DE OPERATIVIDAD'
 }
+
+function cerrarFloatingComment() {
+  floatingCommentVisible.value = false
+  floatingCommentSaving.value = false
+  floatingCommentTexto.value = ''
+  floatingCommentMeta.value = {
+    contratoId: '',
+    categoria: '',
+    rowIndex: -1,
+    diaIndex: -1,
+    equipoId: '',
+    jornada: '',
+    dia: '',
+    clave: '',
+  }
+}
+
+function abrirFloatingComment(meta = {}) {
+  const clave =
+    meta.clave ||
+    `${meta.equipoId || ''}-${meta.jornada || ''}-${meta.dia || ''}`
+
+  floatingCommentMeta.value = {
+    contratoId: meta.contratoId || '',
+    categoria: meta.categoria || '',
+    rowIndex: Number.isFinite(meta.rowIndex) ? meta.rowIndex : -1,
+    diaIndex: Number.isFinite(meta.diaIndex) ? meta.diaIndex : -1,
+    equipoId: meta.equipoId || '',
+    jornada: meta.jornada || '',
+    dia: meta.dia || '',
+    clave,
+  }
+
+  floatingCommentTexto.value = observacionesCelda.value[clave] || ''
+  floatingCommentVisible.value = true
+}
+
+async function guardarFloatingComment() {
+  const { equipoId, jornada, dia, clave } = floatingCommentMeta.value
+  if (!equipoId || !jornada || !dia || !clave) return
+
+  const estadoActual = getValorCelda(clave)
+  if (!estadoActual) {
+    alert('Primero debes marcar la celda con D, F o M.')
+    return
+  }
+
+  floatingCommentSaving.value = true
+  try {
+    await guardarEstadoSimple(
+      equipoId,
+      dia,
+      jornada,
+      estadoActual,
+      String(floatingCommentTexto.value || '').trim()
+    )
+
+    floatingCommentTexto.value = observacionesCelda.value[clave] || String(floatingCommentTexto.value || '').trim()
+  } catch (error) {
+    console.error('Error guardando comentario flotante:', error)
+    alert('No se pudo guardar el comentario.')
+  } finally {
+    floatingCommentSaving.value = false
+  }
+}
+
+function onCellInputFocus(contratoId, categoria, rowIndex, diaIndex, equipoId, jornada, dia) {
+  if (selectionMode.value || modoAcciones.value || isVisualizador.value) return
+
+  const clave = `${equipoId}-${jornada}-${dia}`
+  const estadoActual = getValorCelda(clave)
+
+  if (!estadoActual) {
+    cerrarFloatingComment()
+    return
+  }
+
+  abrirFloatingComment({
+    contratoId,
+    categoria,
+    rowIndex,
+    diaIndex,
+    equipoId,
+    jornada,
+    dia,
+    clave,
+  })
+}
+
 
 async function guardarComentario() {
   const { equipoId, jornada, dia } = comentarioMeta.value
@@ -1871,6 +2105,13 @@ async function guardarComentario() {
   )
 
   comentarioVisible.value = false
+
+  abrirFloatingComment({
+    equipoId,
+    jornada,
+    dia,
+    clave,
+  })
 }
 
 function abrirModalLimpiar(equipoId, jornada, dia) {
@@ -2288,7 +2529,11 @@ async function applyBatchQuick(estadoLetra) {
 }
 
 watch(selectionMode, v => { if (!v) clearSelection() })
-
+watch(modoAcciones, (activo) => {
+  if (activo) {
+    cerrarFloatingComment()
+  }
+})
 /* ===== Arrastre con mouse (“pincel”) ===== */
 const isDraggingSelect = ref(false)
 const dragAddMode = ref(true)
@@ -2337,6 +2582,37 @@ function onCellClick(equipoId, jornada, dia, contratoId, categoria, rowIndex, di
   }
 
   focusCell(contratoId, categoria, rowIndex, diaIndex, jornada)
+
+  nextTick(() => {
+    onCellInputFocus(contratoId, categoria, rowIndex, diaIndex, equipoId, jornada, dia)
+  })
+}
+function onInputCellClick(event, equipoId, jornada, dia, contratoId, categoria, rowIndex, diaIndex) {
+  event.stopPropagation()
+
+  if (modoAcciones.value) {
+    abrirHistorial(equipoId, jornada, dia)
+    return
+  }
+
+  if (selectionMode.value) {
+    onCellClickSelect(equipoId, jornada, dia, contratoId)
+    return
+  }
+
+  onCellClick(equipoId, jornada, dia, contratoId, categoria, rowIndex, diaIndex)
+}
+
+function onInputCellMouseDown(event, equipoId, jornada, dia, contratoId) {
+  if (selectionMode.value) {
+    handleCellMouseDown(event, equipoId, jornada, dia, contratoId)
+    return
+  }
+
+  if (modoAcciones.value) {
+    event.preventDefault()
+    event.stopPropagation()
+  }
 }
 async function guardarEstadoSimple(equipoId, dia, jornada, estadoLetra, comentarioManual = '') {
   if (!equipoId || !dia || !jornada || !estadoLetra) return
@@ -2827,6 +3103,50 @@ td.position-relative .btn-xs{
 
 /* Card */
 .card { border-radius: 16px; background-color: #fff; border: 1px solid #dee2e6; }
+.floating-comment-card {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  width: min(680px, calc(100vw - 24px));
+  z-index: 9999;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 18px 40px rgba(0,0,0,.18);
+  will-change: transform, opacity;
+}
+.floating-comment-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid rgba(0,0,0,.06);
+  background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+}
+
+.floating-comment-card__body {
+  padding: 14px 16px 16px;
+}
+
+.floating-comment-pop-enter-active,
+.floating-comment-pop-leave-active {
+  transition: opacity .18s ease, transform .22s ease;
+}
+
+.floating-comment-pop-enter-from,
+.floating-comment-pop-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(22px) scale(.98);
+}
+
+.floating-comment-pop-enter-to,
+.floating-comment-pop-leave-from {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
 </style>
 
 

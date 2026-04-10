@@ -103,42 +103,6 @@
               <li>
                 <router-link
                   class="dropdown-item d-flex align-items-center justify-content-between gap-2"
-                  to="/aprobar-solicitudes-operatividad"
-                >
-                  <span>
-                    <i class="bi bi-card-checklist me-2"></i> Solicitudes de Cambios
-                  </span>
-
-                  <span
-                    v-if="tieneSolicitudesPendientes"
-                    class="dropdown-alert-pill"
-                  >
-                    {{ solicitudesPendientes > 99 ? "99+" : solicitudesPendientes }}
-                  </span>
-                </router-link>
-              </li>
-
-              <li>
-                <router-link
-                  class="dropdown-item d-flex align-items-center justify-content-between gap-2"
-                  to="/arriendos"
-                >
-                  <span>
-                    <i class="bi bi-truck me-2"></i> Solicitudes de Arriendo
-                  </span>
-
-                  <span
-                    v-if="tieneArriendosPendientes"
-                    class="dropdown-alert-pill dropdown-alert-pill-blue"
-                  >
-                    {{ arriendosSolicitados > 99 ? "99+" : arriendosSolicitados }}
-                  </span>
-                </router-link>
-              </li>
-
-              <li>
-                <router-link
-                  class="dropdown-item d-flex align-items-center justify-content-between gap-2"
                   to="/reportes-fallas"
                 >
                   <span>
